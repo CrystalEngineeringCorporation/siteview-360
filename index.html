@@ -244,9 +244,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, 1, 1, 1100);   // used for orientation only
-// ค่าเริ่มต้นจำกัดที่ 8192 เพื่อกันหน่วยความจำมือถือเต็ม — เติม ?full=1 ท้ายลิงก์เพื่อใช้ขนาดสูงสุดที่ GPU รองรับ (ไม่ย่อรูปถ้าไม่เกิน)
-const FULL = /[?&]full=1\b/.test(location.search), DEBUG = /[?&]debug=1\b/.test(location.search);
-const maxTex = FULL ? renderer.capabilities.maxTextureSize : Math.min(renderer.capabilities.maxTextureSize, 8192);
+// ค่าเริ่มต้น = ใช้ขนาดสูงสุดที่ GPU รองรับ (ไม่ย่อรูปถ้าไม่เกิน) — เติม ?safe=1 ท้ายลิงก์เพื่อจำกัด 8192 กันแรมมือถือเต็ม
+const SAFE = /[?&]safe=1\b/.test(location.search), DEBUG = /[?&]debug=1\b/.test(location.search);
+const maxTex = SAFE ? Math.min(renderer.capabilities.maxTextureSize, 8192) : renderer.capabilities.maxTextureSize;
 const U = {
   tex: { value: null }, mode: { value: 0 }, rot: { value: new THREE.Matrix3() },
   t: { value: 1 }, ks: { value: 1 }, aspect: { value: 1 }, shift: { value: 0 },
@@ -554,9 +554,7 @@ function setChip(msg, o = {}){
 function chipFull(info, extra){
   const dim = `${info.w}×${info.h}`;
   if (info.tw < info.w){
-    const gpu = renderer.capabilities.maxTextureSize;
-    const tip = !FULL && gpu > maxTex && info.w <= gpu ? ' · เติม ?full=1 ท้ายลิงก์เพื่อลองภาพเต็ม' : '';
-    setChip(`ภาพถูกย่อเหลือ ${info.tw}×${info.th} ตามข้อจำกัดของ GPU (ต้นฉบับ ${dim})${tip}`, { warn: true });
+    setChip(`ภาพถูกย่อเหลือ ${info.tw}×${info.th} ตามข้อจำกัดของ GPU (ต้นฉบับ ${dim})`, { warn: true });
   } else setChip(`ภาพเต็ม ${dim}` + (DEBUG && extra ? ' · ' + extra : ''), { ms: DEBUG ? 0 : 5000 });
 }
 
