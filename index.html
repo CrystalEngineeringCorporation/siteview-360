@@ -108,6 +108,27 @@ canvas{display:block;width:100%;height:100%}
 .modes button{appearance:none;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;height:34px;padding:0 12px;border-radius:18px;cursor:pointer}
 .modes button[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;font-weight:600}
 .modes button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* horizon adjust (ปรับแนวระดับ) */
+.hz{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 162px);width:40px;padding:0;justify-content:center}
+.hz.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.hzpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
+  display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--glass-line);
+  background:rgba(22,24,27,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
+.hz-head{display:flex;align-items:center;gap:8px}
+.hz-head b{flex:1}
+.hzpanel .btn{height:34px;min-width:0;padding:0 12px;font-size:13px}
+.hzpanel .btn.done{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
+.hzrow{display:flex;flex-direction:column;gap:2px}
+.hzrow span{display:flex;justify-content:space-between;color:var(--muted);font-size:13px}
+.hzrow output{color:var(--ink);font-variant-numeric:tabular-nums}
+.hzrow input{width:100%;height:30px;margin:0;accent-color:var(--accent);touch-action:pan-x}
+.hz-tip{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.hzguide{position:fixed;inset:0;pointer-events:none;
+  background:
+    linear-gradient(rgba(255,255,255,.7),rgba(255,255,255,.7)) center/100% 1px no-repeat,
+    linear-gradient(90deg,rgba(255,255,255,.45),rgba(255,255,255,.45)) 25% 0/1px 100% no-repeat,
+    linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)) 50% 0/1px 100% no-repeat,
+    linear-gradient(90deg,rgba(255,255,255,.45),rgba(255,255,255,.45)) 75% 0/1px 100% no-repeat}
 @media (prefers-reduced-motion: reduce){.hint,.toast{transition:none}}
 </style>
 </head>
@@ -152,6 +173,22 @@ canvas{display:block;width:100%;height:100%}
   <button data-mode="1" aria-pressed="false" title="มุมกว้างพิเศษ (stereographic)">มุมกว้าง</button>
   <button data-mode="2" aria-pressed="false" title="แนวดิ่งตรง ไม่เบี้ยวเวลาก้ม/เงย">ตรง</button>
 </div>
+<button class="btn hz" id="hzBtn" aria-expanded="false" aria-controls="hzPanel" title="ปรับแนวระดับ" aria-label="ปรับแนวระดับ">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15l18-5"/><path d="M12 3v3M5 6l2 2M19 6l-2 2"/></svg>
+</button>
+<div class="hzguide" id="hzGuide" hidden></div>
+<section class="hzpanel" id="hzPanel" hidden aria-label="ปรับแนวระดับ">
+  <div class="hz-head">
+    <b>ปรับแนวระดับ</b>
+    <button class="btn" id="hzReset">รีเซ็ต</button>
+    <button class="btn done" id="hzDone">เสร็จ</button>
+  </div>
+  <label class="hzrow"><span>เอียงซ้าย–ขวา <output id="hzRollV">0.0°</output></span>
+    <input type="range" id="hzRoll" min="-15" max="15" step="0.1" value="0"></label>
+  <label class="hzrow"><span>เอียงหน้า–หลัง <output id="hzPitchV">0.0°</output></span>
+    <input type="range" id="hzPitch" min="-15" max="15" step="0.1" value="0"></label>
+  <p class="hz-tip">หันมองทางที่เห็นเส้นขอบฟ้าหรือเสาตรงๆ ให้เส้นขอบฟ้าอยู่กลางจอ แล้วปรับจนขนานเส้นไกด์ ค่าบันทึกต่อรูปในเครื่องนี้</p>
+</section>
 <div class="hint" id="hint">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>
   ลากเพื่อหมุนดูรอบทิศ · ถ่างนิ้วหรือเลื่อนล้อเพื่อซูม
@@ -203,14 +240,14 @@ const U = {
   tex: { value: null }, mode: { value: 0 }, rot: { value: new THREE.Matrix3() },
   t: { value: 1 }, ks: { value: 1 }, aspect: { value: 1 }, shift: { value: 0 },
   fwd: { value: new THREE.Vector3(0, 0, -1) }, rgt: { value: new THREE.Vector3(1, 0, 0) },
-  th0: { value: 0 }, thLen: { value: Math.PI }
+  th0: { value: 0 }, thLen: { value: Math.PI }, corr: { value: new THREE.Matrix3() }
 };
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
   uniforms: U, depthTest: false, depthWrite: false,
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `
     precision highp float;
-    uniform sampler2D tex; uniform int mode; uniform mat3 rot;
+    uniform sampler2D tex; uniform int mode; uniform mat3 rot, corr;
     uniform float t, ks, aspect, shift, th0, thLen; uniform vec3 fwd, rgt;
     varying vec2 vUv;
     const float TAU = 6.28318530718;
@@ -229,7 +266,7 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
         vec2 p = n * vec2(aspect, 1.0);
         d = rot * vec3(p * t, -1.0);
       }
-      d = normalize(d);
+      d = normalize(corr * d);               // horizon correction (per image)
       float ph = atan(d.z, d.x); if (ph < 0.0) ph += TAU;
       float v = (acos(clamp(d.y, -1.0, 1.0)) - th0) / thLen;
       if (v < 0.0 || v > 1.0){ gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
@@ -253,7 +290,7 @@ let dragging = false, interacted = false;
 const pointers = new Map();
 let lastX = 0, lastY = 0, lastT = 0, pinchDist = 0;
 
-function setPano(img, name){
+function setPano(img, name, key){
   // Downscale if bigger than GPU allows (Osmo 360 photos can exceed 8K)
   let src = img, w = img.width, h = img.height;
   if (w > maxTex){
@@ -276,6 +313,7 @@ function setPano(img, name){
   U.thLen.value = THREE.MathUtils.degToRad(vDeg);
   lon = 0; lat = 0; vLon = vLat = 0;
   $('title').textContent = name;
+  hzLoad(key);
   if (Math.abs(aspect - 2) > 0.05) toast(`รูปไม่ใช่สัดส่วน 2:1 (${aspect.toFixed(2)}:1) — แสดงเป็นพาโนรามาบางส่วน`);
 }
 
@@ -414,6 +452,45 @@ $('compass').addEventListener('click', () => {
   fov = MODES[mode].fov;
 });
 
+// ---------- horizon adjust (ปรับแนวระดับ) ----------
+// เก็บเป็น quaternion ต่อรูป (localStorage ในเครื่องนี้) — สไลเดอร์อ้างอิงทิศที่กำลังมองตอนเปิดแผง
+const hzPanel = $('hzPanel'), hzGuide = $('hzGuide'), hzBtn = $('hzBtn');
+const hzQ = new THREE.Quaternion(), hzBase = new THREE.Quaternion(), hzInv = new THREE.Quaternion(), hzId = new THREE.Quaternion();
+const hzF = new THREE.Vector3(0, 0, -1), hzR = new THREE.Vector3(1, 0, 0), hzM4 = new THREE.Matrix4();
+const hzA = new THREE.Quaternion(), hzB = new THREE.Quaternion();
+let hzKey = null;
+const hzIsId = () => hzQ.angleTo(hzId) < 1e-4;
+function hzSave(){ if (hzKey) store('sv360.hz.' + hzKey, hzIsId() ? null : JSON.stringify(hzQ.toArray())); }
+function hzMark(){ hzBtn.classList.toggle('has', !hzIsId()); }
+function hzClose(){ hzPanel.hidden = true; hzGuide.hidden = true; hzBtn.setAttribute('aria-expanded', 'false'); }
+function hzLoad(key){
+  hzKey = key || null; hzQ.identity();
+  if (hzKey){ try { const a = JSON.parse(load('sv360.hz.' + hzKey));
+    if (Array.isArray(a) && a.length === 4 && a.every(Number.isFinite)) hzQ.fromArray(a).normalize(); } catch {} }
+  hzClose(); hzMark();
+}
+function hzApply(){
+  const roll = +$('hzRoll').value, pitch = +$('hzPitch').value;
+  hzA.setFromAxisAngle(hzF, THREE.MathUtils.degToRad(roll));
+  hzB.setFromAxisAngle(hzR, THREE.MathUtils.degToRad(pitch));
+  hzQ.copy(hzA).multiply(hzB).multiply(hzBase).normalize();
+  $('hzRollV').textContent = roll.toFixed(1) + '°'; $('hzPitchV').textContent = pitch.toFixed(1) + '°';
+  hzMark();
+}
+function hzOpen(){
+  camera.getWorldDirection(dir);
+  const h = Math.hypot(dir.x, dir.z);
+  if (h > 1e-3){ hzF.set(dir.x / h, 0, dir.z / h); hzR.set(-dir.z / h, 0, dir.x / h); }
+  else { hzF.set(0, 0, -1); hzR.set(1, 0, 0); }
+  hzBase.copy(hzQ); $('hzRoll').value = 0; $('hzPitch').value = 0; hzApply();
+  hzPanel.hidden = false; hzGuide.hidden = false; hzBtn.setAttribute('aria-expanded', 'true');
+}
+hzBtn.addEventListener('click', () => hzPanel.hidden ? hzOpen() : (hzClose(), hzSave()));
+$('hzDone').addEventListener('click', () => { hzClose(); hzSave(); });
+$('hzReset').addEventListener('click', () => { hzQ.identity(); hzBase.identity(); $('hzRoll').value = 0; $('hzPitch').value = 0; hzApply(); hzSave(); });
+['hzRoll', 'hzPitch'].forEach(id => { $(id).addEventListener('input', hzApply); $(id).addEventListener('change', hzSave); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !hzPanel.hidden){ hzClose(); hzSave(); } });
+
 // ---------- loop ----------
 const target = new THREE.Vector3();
 let t0 = performance.now();
@@ -434,6 +511,7 @@ function loop(now){
   camera.updateMatrixWorld();
   U.rot.value.setFromMatrix4(camera.matrixWorld);
   U.mode.value = mode; U.t.value = tanHalf(); U.ks.value = stereoK();
+  U.corr.value.setFromMatrix4(hzM4.makeRotationFromQuaternion(hzInv.copy(hzQ).invert()));
   camera.getWorldDirection(dir);
   const hz = Math.hypot(dir.x, dir.z);
   if (hz > 1e-4){ U.fwd.value.set(dir.x / hz, 0, dir.z / hz); U.rgt.value.set(-dir.z / hz, 0, dir.x / hz); }
@@ -446,14 +524,14 @@ function loop(now){
 
 // ---------- files / gallery ----------
 const items = [];
-async function addFiles(files){
+async function addFiles(files, key){
   const added = [];
   for (const f of files){
     if (!f.type.startsWith('image/')) continue;
     const url = URL.createObjectURL(f);
     const img = new Image(); img.src = url;
     try { await img.decode(); } catch { toast(`เปิดไฟล์ ${f.name} ไม่ได้`); continue; }
-    const item = { name: f.name, img, url };
+    const item = { name: f.name, img, url, key: key || `file:${f.name}:${f.size}` };
     items.push(item); added.push(item);
     const b = document.createElement('button');
     b.className = 'thumb'; b.style.backgroundImage = `url("${url}")`; b.title = f.name; b.setAttribute('aria-label', f.name);
@@ -467,7 +545,7 @@ async function addFiles(files){
 function select(item, btn){
   document.querySelectorAll('.thumb').forEach(t => t.removeAttribute('aria-current'));
   btn.setAttribute('aria-current','true');
-  setPano(item.img, item.name);
+  setPano(item.img, item.name, item.key);
 }
 $('file').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
 
@@ -646,7 +724,7 @@ async function openDriveImage(f){
     for (;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length;
       toast(`กำลังโหลด ${f.name}${total ? ` ${Math.round(got / total * 100)}%` : ''}`); }
     const file = new File(chunks, f.name, { type: f.mimeType || 'image/jpeg' });
-    const [it] = await addFiles([file]);
+    const [it] = await addFiles([file], 'drive:' + f.id);
     if (it){ driveCache.set(f.id + f.modifiedTime, it); sheet.classList.remove('on'); toast(f.name); }
   } catch (e){ toast(`โหลด ${f.name} ไม่ได้ (${e.message})`); }
 }
