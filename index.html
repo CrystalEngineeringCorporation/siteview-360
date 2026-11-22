@@ -661,15 +661,20 @@ function select(item, btn){
   if (item.drive && !item.loading) loadDriveItem(item);
 }
 // ---------- รูปก่อนหน้า/ถัดไป ----------
+// รูป Drive: เลื่อนตามรายการรูปในโฟลเดอร์ที่เปิดมา (ไม่ใช่แค่รูปที่เคยเปิด) · รูปจากเครื่อง: เลื่อนตามแถบรูป
+function navList(){ return current && current.drive && current.siblings ? current.siblings.map(f => ({ drive: f, name: f.name })) : items; }
+function navIndex(list){ return current && current.drive && current.siblings ? list.findIndex(x => x.drive.id === current.drive.id) : list.indexOf(current); }
 function syncNav(){
-  const i = items.indexOf(current), n = items.length;
+  const list = navList(), i = navIndex(list), n = list.length;
   $('prevBtn').hidden = $('nextBtn').hidden = n < 2;
   $('prevBtn').disabled = i <= 0; $('nextBtn').disabled = i < 0 || i >= n - 1;
 }
 function step(d){
-  const i = items.indexOf(current), j = i + d;
-  if (i < 0 || j < 0 || j >= items.length) return;
-  select(items[j], items[j].btn); toast(`${j + 1}/${items.length} · ${items[j].name}`);
+  const list = navList(), i = navIndex(list), j = i + d;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  if (current.drive && current.siblings) openDriveImage(list[j].drive, current.siblings);
+  else select(items[j], items[j].btn);
+  toast(`${j + 1}/${list.length} · ${list[j].name}`);
 }
 $('prevBtn').addEventListener('click', () => step(-1));
 $('nextBtn').addEventListener('click', () => step(1));
@@ -847,6 +852,7 @@ function handleErr(e){
     : `เชื่อมไม่ได้: ${m}`;
   showLinkForm(msg);
 }
+let folderImages = [];                       // รูปในโฟลเดอร์ที่เปิดอยู่ล่าสุด (ใช้กับปุ่มก่อนหน้า/ถัดไป)
 async function renderFolder(){
   const cur = path[path.length - 1];
   crumbs.innerHTML = '';
@@ -863,6 +869,7 @@ async function renderFolder(){
   if (path[path.length - 1] !== cur) return;   // user navigated away meanwhile
   body.innerHTML = '';
   if (!files.length){ body.innerHTML = '<div class="empty">โฟลเดอร์นี้ยังไม่มีรูป</div>'; return; }
+  folderImages = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
   for (const f of files){
     const el = document.createElement('button'); el.className = 'item';
     if (f.mimeType === 'application/vnd.google-apps.folder'){
@@ -880,7 +887,8 @@ async function renderFolder(){
         im.onload = () => { el.querySelector('.pic').style.backgroundImage = `url("${im.src}")`; };
         im.src = f.thumbnailLink.replace(/=s\d+$/, '=s800');
       }
-      el.onclick = () => openDriveImage(f);
+      const sib = folderImages;
+      el.onclick = () => openDriveImage(f, sib);
     }
     body.appendChild(el);
   }
@@ -978,13 +986,14 @@ async function loadDriveItem(it){
     toast(`โหลด ${f.name} ไม่ได้ (${e.message})`);
   } finally { it.loading = false; }
 }
-function openDriveImage(f){
+function openDriveImage(f, sib){
   const ck = f.id + f.modifiedTime;
   let it = driveCache.get(ck);
   if (!it){
     it = { name: f.name, key: 'drive:' + f.id, drive: f, img: null, preview: null, loading: false };
     items.push(it); makeThumb(it, null); driveThumb(it, f); driveCache.set(ck, it);
   }
+  if (sib) it.siblings = sib;
   sheet.classList.remove('on');
   select(it, it.btn);
 }
