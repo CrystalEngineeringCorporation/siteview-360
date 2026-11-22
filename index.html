@@ -114,6 +114,19 @@ canvas{display:block;width:100%;height:100%}
 .modes button[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;font-weight:600}
 .modes button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:340px){ .modes button{padding:0 8px;font-size:12px} }
+.zoomctl{position:fixed;right:21px;bottom:calc(env(safe-area-inset-bottom,0px) + 214px);width:46px;display:flex;flex-direction:column;
+  border-radius:20px;border:1px solid var(--glass-line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);overflow:hidden}
+.zoomctl[hidden]{display:none}
+.zoomctl button{appearance:none;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.zoomctl .zpm{height:38px;font-size:22px;line-height:1}
+.zoomctl .zrd{height:44px;gap:1px;border-block:1px solid var(--glass-line);font-variant-numeric:tabular-nums}
+.zoomctl .zrd b{font-size:13px}
+.zoomctl .zrd small{font-size:10px;color:var(--muted);white-space:nowrap}
+.zoomctl button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.zoomctl.deep .zrd b{color:var(--accent)}
+.zoomnote{position:fixed;right:76px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);padding:5px 9px;border-radius:12px;font-size:12px;
+  border:1px solid var(--accent);background:var(--glass);color:var(--ink);pointer-events:none;text-align:right;max-width:55vw}
+.zoomnote[hidden]{display:none}
 /* horizon adjust (ปรับแนวระดับ) */
 .hz{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 162px);width:40px;padding:0;justify-content:center}
 .hz.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
@@ -180,6 +193,12 @@ canvas{display:block;width:100%;height:100%}
   <button data-mode="1" aria-pressed="false" title="กว้างพิเศษ (stereographic)">กว้างพิเศษ</button>
   <button data-mode="2" aria-pressed="false" title="แนวดิ่งตรง ไม่เบี้ยวเวลาก้ม/เงย">ตรง</button>
 </div>
+<div class="zoomctl" id="zoomCtl" role="group" aria-label="ซูม">
+  <button class="zpm" id="zIn" aria-label="ซูมเข้า" title="ซูมเข้า">+</button>
+  <button class="zrd" id="zRead" aria-label="รีเซ็ตซูม" title="แตะเพื่อกลับซูม ×1.0"><b id="zX">×1.0</b><small id="zFov">FOV 75°</small></button>
+  <button class="zpm" id="zOut" aria-label="ซูมออก" title="ซูมออก">−</button>
+</div>
+<div class="zoomnote" id="zoomNote" hidden></div>
 <button class="btn hz" id="hzBtn" aria-expanded="false" aria-controls="hzPanel" title="ปรับแนวระดับ" aria-label="ปรับแนวระดับ">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15l18-5"/><path d="M12 3v3M5 6l2 2M19 6l-2 2"/></svg>
 </button>
@@ -238,6 +257,9 @@ const R = 500;
 const MODES = [ { fov: 75, min: 30, max: 100 }, { fov: 200, min: 100, max: 290 }, { fov: 80, min: 30, max: 100 }, { fov: 120, min: 80, max: 170 } ];
 const isStereo = () => mode === 1 || mode === 3;
 let mode = 0, fov = 75, vDeg = 180;
+// ซูมลึกในมุมมองปกติ: ×1.0 = FOV 75° (ค่าเริ่มต้นเดิม) · เกิน FOV 30° (เดิมคือขีดสุดของโหมดปกติ) ปุ่มจะเปลี่ยนชื่อเป็น "ซูม"
+const Z0 = Math.tan(75 * Math.PI / 360), NORMAL_MIN = 30, ZOOM_ENTER = 29.5, ZOOM_EXIT = 30.5, MAX_UPSCALE = 3, DEEP_FLOOR = 6;
+let texW = 0, zoomMode = false;
 
 // ---------- three setup ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -313,6 +335,7 @@ function setPano(img, name, key, opt = {}){
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     src = c;
   }
+  texW = src.width;
   const tex = new THREE.Texture(src);
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
@@ -402,7 +425,37 @@ stage.addEventListener('pointercancel', endPointer);
 stage.addEventListener('wheel', e => { e.preventDefault(); zoomBy(Math.exp(e.deltaY * 0.001)); markInteracted(); }, { passive:false });
 stage.addEventListener('dblclick', () => zoomBy(fov > (MODES[mode].min + MODES[mode].max) / 2 ? 0.6 : 1.6));
 
-function zoomBy(f){ fov = THREE.MathUtils.clamp(fov * f, MODES[mode].min, MODES[mode].max); }
+// ขีดซูมลึกสุดของโหมดปกติ: ปล่อยให้ภาพขยายเกินพิกเซลจริงได้ไม่เกิน MAX_UPSCALE เท่า (อิงความกว้างภาพที่ส่งเข้า GPU จริง)
+function fovMin(){
+  if (mode !== 0 || !texW) return MODES[mode].min;
+  const screenPx = innerHeight * Math.min(devicePixelRatio, 2);
+  return THREE.MathUtils.clamp(screenPx / MAX_UPSCALE * 360 / texW, DEEP_FLOOR, NORMAL_MIN);
+}
+function zoomBy(f){ fov = THREE.MathUtils.clamp(fov * f, fovMin(), MODES[mode].max); }
+const zoomX = () => Z0 / Math.tan(THREE.MathUtils.degToRad(fov) / 2);
+// พิกเซลภาพต่อพิกเซลจอ: >1 = ภาพถูกขยายเกินความละเอียดจริง
+const upscale = () => !texW ? 0 : (innerHeight * Math.min(devicePixelRatio, 2)) / (THREE.MathUtils.degToRad(fov) * texW / (2 * Math.PI));
+function syncZoomUI(){
+  const on = mode === 0;
+  $('zoomCtl').hidden = !on;
+  const up = on ? upscale() : 0, soft = up > 1.05;
+  $('zoomNote').hidden = !soft;
+  if (!on){ zoomMode = false; setModeLabel(); return; }
+  if (!zoomMode && fov < ZOOM_ENTER) zoomMode = true; else if (zoomMode && fov > ZOOM_EXIT) zoomMode = false;
+  setModeLabel();
+  $('zX').textContent = '×' + zoomX().toFixed(zoomX() < 10 ? 1 : 0);
+  $('zFov').textContent = 'FOV ' + Math.round(fov) + '°';
+  $('zoomCtl').classList.toggle('deep', zoomMode);
+  if (soft) $('zoomNote').textContent = 'ขยายเกินพิกเซลจริง ' + up.toFixed(1) + '×';
+}
+const modeBtn0 = document.querySelector('.modes button[data-mode="0"]');
+function setModeLabel(){
+  const t = zoomMode ? 'ซูม' : 'ปกติ';
+  if (modeBtn0.textContent !== t){ modeBtn0.textContent = t; modeBtn0.title = zoomMode ? 'โหมดซูม — ซูมเกินช่วงปกติ (แตะเพื่อกลับมุมปกติ)' : 'มุมมองปกติ'; }
+}
+$('zIn').addEventListener('click', () => { zoomBy(0.75); markInteracted(); });
+$('zOut').addEventListener('click', () => { zoomBy(1 / 0.75); markInteracted(); });
+$('zRead').addEventListener('click', () => { fov = MODES[0].fov; });
 const tanHalf = () => Math.tan(THREE.MathUtils.degToRad(fov) / 2);
 const stereoK = () => 2 * Math.tan(THREE.MathUtils.degToRad(fov) / 4);
 function radPerPx(){
@@ -527,6 +580,7 @@ function loop(now){
   }
   camera.updateMatrixWorld();
   U.rot.value.setFromMatrix4(camera.matrixWorld);
+  syncZoomUI();
   U.mode.value = isStereo() ? 1 : mode; U.t.value = tanHalf(); U.ks.value = stereoK();
   U.corr.value.setFromMatrix4(hzM4.makeRotationFromQuaternion(hzInv.copy(hzQ).invert()));
   camera.getWorldDirection(dir);
