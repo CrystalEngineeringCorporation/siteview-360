@@ -30,7 +30,10 @@ canvas{display:block;width:100%;height:100%}
   padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;
   background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,0));pointer-events:none}
 .bar>*{pointer-events:auto}
-.title{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.logo{flex:0 0 auto;width:42px;height:42px;padding:3px;border-radius:10px;background:#fff;object-fit:contain;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.brand{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.co{font-size:11px;line-height:1.25;color:#fff;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.title{min-width:0;font-weight:600;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .btn{appearance:none;border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
   height:40px;min-width:40px;padding:0 12px;border-radius:20px;font:inherit;font-size:14px;
   display:inline-flex;align-items:center;gap:6px;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -39,6 +42,13 @@ canvas{display:block;width:100%;height:100%}
 .btn:focus-visible,.compass:focus-visible,.thumb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn .lbl{display:none}
 @media (min-width:640px){.btn .lbl{display:inline}}
+@media (max-width:560px){
+  .bar{gap:6px}
+  .bar .btn{height:38px;min-width:38px;padding:0 9px}
+  .co{font-size:10px;line-height:1.2;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .title{font-size:13px;line-height:1.2}
+}
+@media (max-width:340px){ .co{display:none} }   /* จอแคบมาก: ชื่อบริษัทอยู่ในโลโก้อยู่แล้ว */
 
 /* Facebook-style FOV compass */
 .compass{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);
@@ -105,7 +115,11 @@ canvas{display:block;width:100%;height:100%}
 <div id="stage"></div>
 
 <div class="bar">
-  <div class="title" id="title">ภาพตัวอย่าง</div>
+  <img class="logo" src="logo.png" alt="Crystal Engineering Corporation" width="42" height="42">
+  <div class="brand">
+    <div class="co">คริสตัล เอ็นจิเนียริ่ง คอร์ปอเรชั่น</div>
+    <div class="title" id="title">ภาพตัวอย่าง</div>
+  </div>
   <label class="btn" title="เปิดรูป 360">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
     <span class="lbl">เปิดรูป</span>
