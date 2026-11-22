@@ -170,6 +170,7 @@ canvas{display:block;width:100%;height:100%}
 
 <div class="modes" role="group" aria-label="มุมมอง">
   <button data-mode="0" aria-pressed="true" title="มุมมองปกติ">ปกติ</button>
+  <button data-mode="3" aria-pressed="false" title="มุมกลาง — กว้างกว่าปกติ โค้งน้อยกว่ามุมกว้าง">กลาง</button>
   <button data-mode="1" aria-pressed="false" title="มุมกว้างพิเศษ (stereographic)">มุมกว้าง</button>
   <button data-mode="2" aria-pressed="false" title="แนวดิ่งตรง ไม่เบี้ยวเวลาก้ม/เงย">ตรง</button>
 </div>
@@ -225,8 +226,10 @@ window.DRIVE_CONFIG = {
 const $ = id => document.getElementById(id);
 const stage = $('stage');
 const R = 500;
-// view modes: 0 = ปกติ (rectilinear), 1 = มุมกว้างพิเศษ (stereographic), 2 = ตรง (แนวดิ่งขนาน / shift lens)
-const MODES = [ { fov: 75, min: 30, max: 100 }, { fov: 200, min: 100, max: 290 }, { fov: 80, min: 30, max: 100 } ];
+// view modes: 0 = ปกติ (rectilinear), 1 = มุมกว้างพิเศษ (stereographic), 2 = ตรง (แนวดิ่งขนาน / shift lens),
+//             3 = กลาง (stereographic มุมกว้างปานกลาง — เห็นกว้างกว่าปกติ แต่ไม่โค้งเป็นดาวเคราะห์)
+const MODES = [ { fov: 75, min: 30, max: 100 }, { fov: 200, min: 100, max: 290 }, { fov: 80, min: 30, max: 100 }, { fov: 120, min: 80, max: 170 } ];
+const isStereo = () => mode === 1 || mode === 3;
 let mode = 0, fov = 75, vDeg = 180;
 
 // ---------- three setup ----------
@@ -389,17 +392,17 @@ function zoomBy(f){ fov = THREE.MathUtils.clamp(fov * f, MODES[mode].min, MODES[
 const tanHalf = () => Math.tan(THREE.MathUtils.degToRad(fov) / 2);
 const stereoK = () => 2 * Math.tan(THREE.MathUtils.degToRad(fov) / 4);
 function radPerPx(){
-  return mode === 1 ? 2 * stereoK() / Math.min(innerWidth, innerHeight) : 2 * tanHalf() / innerHeight;
+  return isStereo() ? 2 * stereoK() / Math.min(innerWidth, innerHeight) : 2 * tanHalf() / innerHeight;
 }
 function latMax(){
-  if (mode === 1) return vDeg >= 179 ? 89 : Math.max(0, vDeg / 2 - 30);
+  if (isStereo()) return vDeg >= 179 ? 89 : Math.max(0, vDeg / 2 - 30);
   if (mode === 2) return Math.min(55, vDeg >= 179 ? 55 : Math.max(0, vDeg / 2 - fov / 2));
   return vDeg >= 179 ? 85 : Math.max(0, vDeg / 2 - fov / 2);
 }
 function setMode(m){
   mode = m; fov = MODES[m].fov;
   document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.mode === m)));
-  toast(['มุมมองปกติ', 'มุมกว้างพิเศษ — ก้มลงสุดจะเห็นเป็นดาวเคราะห์จิ๋ว', 'แนวดิ่งตรง — เสา/ผนังไม่เอียงเวลาก้มเงย'][m]);
+  toast(['มุมมองปกติ', 'มุมกว้างพิเศษ — ก้มลงสุดจะเห็นเป็นดาวเคราะห์จิ๋ว', 'แนวดิ่งตรง — เสา/ผนังไม่เอียงเวลาก้มเงย', 'มุมกลาง — กว้างกว่าปกติ แต่ไม่โค้งมาก'][m]);
 }
 document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => setMode(+b.dataset.mode)));
 function markInteracted(){ if (!interacted){ interacted = true; $('hint').classList.add('gone'); } }
@@ -439,7 +442,7 @@ const wedge = $('wedge'), dir = new THREE.Vector3();
 function drawCompass(){
   camera.getWorldDirection(dir);
   const yaw = Math.atan2(dir.x, -dir.z);  // 0 = start direction, clockwise
-  const hFov = mode === 1
+  const hFov = isStereo()
     ? Math.min(2 * Math.PI - 0.01, 4 * Math.atan(camera.aspect / Math.min(camera.aspect, 1) * stereoK() / 2))
     : 2 * Math.atan(tanHalf() * camera.aspect);
   const r = 24, a0 = yaw - hFov / 2, a1 = yaw + hFov / 2;
@@ -510,7 +513,7 @@ function loop(now){
   }
   camera.updateMatrixWorld();
   U.rot.value.setFromMatrix4(camera.matrixWorld);
-  U.mode.value = mode; U.t.value = tanHalf(); U.ks.value = stereoK();
+  U.mode.value = isStereo() ? 1 : mode; U.t.value = tanHalf(); U.ks.value = stereoK();
   U.corr.value.setFromMatrix4(hzM4.makeRotationFromQuaternion(hzInv.copy(hzQ).invert()));
   camera.getWorldDirection(dir);
   const hz = Math.hypot(dir.x, dir.z);
