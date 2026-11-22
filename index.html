@@ -127,6 +127,11 @@ canvas{display:block;width:100%;height:100%}
 .zoomnote{position:fixed;right:76px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);padding:5px 9px;border-radius:12px;font-size:12px;
   border:1px solid var(--accent);background:var(--glass);color:var(--ink);pointer-events:none;text-align:right;max-width:55vw}
 .zoomnote[hidden]{display:none}
+.snap{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 346px);width:40px;padding:0;justify-content:center}
+.nav{position:fixed;top:30%;transform:translateY(-50%);width:40px;height:56px;padding:0;justify-content:center;border-radius:14px}
+.nav[hidden]{display:none}
+.nav:disabled{opacity:.3;cursor:default}
+.nav.prev{left:8px}.nav.next{right:8px}
 /* horizon adjust (ปรับแนวระดับ) */
 .hz{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 162px);width:40px;padding:0;justify-content:center}
 .hz.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
@@ -199,6 +204,15 @@ canvas{display:block;width:100%;height:100%}
   <button class="zpm" id="zOut" aria-label="ซูมออก" title="ซูมออก">−</button>
 </div>
 <div class="zoomnote" id="zoomNote" hidden></div>
+<button class="btn snap" id="snapBtn" title="บันทึกภาพมุมมองปัจจุบัน" aria-label="บันทึกภาพมุมมองปัจจุบัน">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+</button>
+<button class="btn nav prev" id="prevBtn" hidden title="รูปก่อนหน้า" aria-label="รูปก่อนหน้า">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+</button>
+<button class="btn nav next" id="nextBtn" hidden title="รูปถัดไป" aria-label="รูปถัดไป">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+</button>
 <button class="btn hz" id="hzBtn" aria-expanded="false" aria-controls="hzPanel" title="ปรับแนวระดับ" aria-label="ปรับแนวระดับ">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15l18-5"/><path d="M12 3v3M5 6l2 2M19 6l-2 2"/></svg>
 </button>
@@ -639,12 +653,70 @@ function select(item, btn){
   document.querySelectorAll('.thumb').forEach(t => t.removeAttribute('aria-current'));
   btn.setAttribute('aria-current','true');
   const prev = current; current = item;
+  syncNav(); try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch {}
   if (prev && prev !== item && prev.drive) prev.img = null;   // ปล่อยหน่วยความจำรูป Drive ที่ไม่ได้ดูแล้ว (เปิดกลับจากแคชได้ทันที)
   if (item.img){ item.info = setPano(item.img, item.name, item.key); chipFull(item.info); return; }
   $('title').textContent = item.name;                          // รูป Drive ที่ยังไม่มีภาพเต็มในหน่วยความจำ
   if (item.preview){ setPano(item.preview, item.name, item.key); setChip('ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…'); }
   if (item.drive && !item.loading) loadDriveItem(item);
 }
+// ---------- รูปก่อนหน้า/ถัดไป ----------
+function syncNav(){
+  const i = items.indexOf(current), n = items.length;
+  $('prevBtn').hidden = $('nextBtn').hidden = n < 2;
+  $('prevBtn').disabled = i <= 0; $('nextBtn').disabled = i < 0 || i >= n - 1;
+}
+function step(d){
+  const i = items.indexOf(current), j = i + d;
+  if (i < 0 || j < 0 || j >= items.length) return;
+  select(items[j], items[j].btn); toast(`${j + 1}/${items.length} · ${items[j].name}`);
+}
+$('prevBtn').addEventListener('click', () => step(-1));
+$('nextBtn').addEventListener('click', () => step(1));
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input,textarea,select')) return;
+  if (sheet.classList.contains('on') || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') step(-1); else if (e.key === 'ArrowRight' || e.key === 'PageDown') step(1);
+});
+
+// ---------- บันทึกภาพมุมมองปัจจุบัน (JPG + แถบชื่อรูป/วันที่/โลโก้) ----------
+const snapLogo = new Image(); snapLogo.src = 'logo.png';
+function snapshot(){
+  if (!U.tex.value){ toast('ยังไม่มีรูป'); return; }
+  renderer.render(scene, camera);                                  // วาดซ้ำแล้วคัดลอกทันทีในรอบเดียวกัน (canvas ไม่ได้เปิด preserveDrawingBuffer)
+  const gl = renderer.domElement, W = gl.width, H = gl.height, k = W / innerWidth;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(gl, 0, 0);
+  const name = current ? current.name : ($('title').textContent || '');
+  const when = new Date(), dateTxt = when.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+  const view = ['ปกติ', 'กว้างพิเศษ', 'ตรง', 'กว้าง'][mode] + (mode === 0 ? ` ×${zoomX().toFixed(1)} (FOV ${Math.round(fov)}°)` : '');
+  const bh = Math.round(72 * k), pad = Math.round(10 * k), ls = bh - pad * 2;
+  g.fillStyle = 'rgba(16,26,52,.82)'; g.fillRect(0, H - bh, W, bh);
+  g.fillStyle = '#f2b705'; g.fillRect(0, H - bh, W, Math.max(1, Math.round(2 * k)));
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect ? g.roundRect(pad, H - bh + pad, ls, ls, 8 * k) : g.rect(pad, H - bh + pad, ls, ls); g.fill();
+  if (snapLogo.complete && snapLogo.naturalWidth){ const q = ls - 6 * k; g.drawImage(snapLogo, pad + 3 * k, H - bh + pad + 3 * k, q, q); }
+  const tx = pad * 2 + ls, ff = '"IBM Plex Sans Thai", sans-serif';
+  g.textBaseline = 'alphabetic'; g.fillStyle = '#fff';
+  g.font = `600 ${15 * k}px ${ff}`; g.fillText(fitText(g, name, W - tx - pad), tx, H - bh + pad + 16 * k);
+  g.font = `400 ${11.5 * k}px ${ff}`; g.fillStyle = 'rgba(255,255,255,.85)';
+  g.fillText(fitText(g, 'คริสตัล เอ็นจิเนียริ่ง คอร์ปอเรชั่น', W - tx - pad), tx, H - bh + pad + 34 * k);
+  g.fillText(fitText(g, `${dateTxt} · ${view}`, W - tx - pad), tx, H - bh + pad + 52 * k);
+  const stamp = when.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
+  const fname = `siteview_${(name || 'view').replace(/\.[^.]+$/, '').replace(/[^\w\u0E00-\u0E7F-]+/g, '_')}_${stamp}.jpg`;
+  c.toBlob(async blob => {
+    if (!blob){ toast('บันทึกภาพไม่สำเร็จ'); return; }
+    const file = new File([blob], fname, { type: 'image/jpeg' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })){ await navigator.share({ files: [file] }); toast('ส่งภาพแล้ว'); return; }
+    } catch (e){ if (e && e.name === 'AbortError') return; }      // ผู้ใช้ปิดหน้าต่างแชร์ = ยกเลิก; อย่างอื่น → ดาวน์โหลดแทน
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('บันทึกภาพแล้ว');
+  }, 'image/jpeg', 0.92);
+}
+function fitText(g, t, maxW){ if (g.measureText(t).width <= maxW) return t; while (t.length > 1 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1); return t + '…'; }
+$('snapBtn').addEventListener('click', snapshot);
+
 $('file').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
 
 let dragDepth = 0;
