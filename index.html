@@ -127,14 +127,24 @@ canvas{display:block;width:100%;height:100%}
 .zoomnote{position:fixed;right:76px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);padding:5px 9px;border-radius:12px;font-size:12px;
   border:1px solid var(--accent);background:var(--glass);color:var(--ink);pointer-events:none;text-align:right;max-width:55vw}
 .zoomnote[hidden]{display:none}
-.snap{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 346px);width:40px;padding:0;justify-content:center}
 .nav{position:fixed;top:30%;transform:translateY(-50%);width:40px;height:56px;padding:0;justify-content:center;border-radius:14px}
 .nav[hidden]{display:none}
 .nav:disabled{opacity:.3;cursor:default}
 .nav.prev{left:8px}.nav.next{right:8px}
 /* horizon adjust (ปรับแนวระดับ) */
-.hz{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 162px);width:40px;padding:0;justify-content:center}
-.hz.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.hz.has::after,#moreBtn.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+#moreBtn{position:relative}
+.menu{position:fixed;z-index:5;right:12px;top:calc(env(safe-area-inset-top,0px) + 62px);display:flex;flex-direction:column;gap:4px;padding:8px;min-width:200px;
+  border-radius:16px;border:1px solid var(--glass-line);background:rgba(22,24,27,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.menu[hidden]{display:none}
+.menu .btn{position:relative;width:100%;justify-content:flex-start;padding:0 12px;border-radius:12px;background:none;border-color:transparent}
+.menu .btn .lbl{display:inline}
+.menu .btn[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
+/* ซ่อน UI อัตโนมัติเมื่อไม่ได้แตะ */
+.bar,.modes,.zoomctl,.zoomnote,.compass,.nav,.strip,.chip{transition:opacity .35s}
+body.idle .bar,body.idle .modes,body.idle .zoomctl,body.idle .zoomnote,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
+body.idle .bar>*{pointer-events:none}
+@media (prefers-reduced-motion: reduce){.bar,.modes,.zoomctl,.zoomnote,.compass,.nav,.strip,.chip{transition:none}}
 .hzpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
   display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--glass-line);
   background:rgba(22,24,27,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
@@ -174,12 +184,8 @@ canvas{display:block;width:100%;height:100%}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
     <span class="lbl">Google Drive</span>
   </button>
-  <button class="btn" id="gyroBtn" aria-pressed="false" title="หมุนตามมือถือ">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
-    <span class="lbl">หมุนตามเครื่อง</span>
-  </button>
-  <button class="btn" id="fsBtn" title="เต็มจอ">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  <button class="btn" id="moreBtn" aria-expanded="false" aria-controls="menu" title="เครื่องมือ" aria-label="เครื่องมือ">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
   </button>
 </div>
 
@@ -192,6 +198,24 @@ canvas{display:block;width:100%;height:100%}
   </svg>
 </button>
 
+<div class="menu" id="menu" hidden role="menu" aria-label="เครื่องมือ">
+  <button class="btn" id="gyroBtn" aria-pressed="false" title="หมุนตามมือถือ">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+    <span class="lbl">หมุนตามเครื่อง</span>
+  </button>
+  <button class="btn" id="fsBtn" title="เต็มจอ">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    <span class="lbl">เต็มจอ</span>
+</button>
+<button class="btn snap" id="snapBtn" title="บันทึกภาพมุมมองปัจจุบัน" aria-label="บันทึกภาพมุมมองปัจจุบัน">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+  <span class="lbl">บันทึกภาพ</span>
+</button>
+<button class="btn hz" id="hzBtn" aria-expanded="false" aria-controls="hzPanel" title="ปรับแนวระดับ" aria-label="ปรับแนวระดับ">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15l18-5"/><path d="M12 3v3M5 6l2 2M19 6l-2 2"/></svg>
+  <span class="lbl">ปรับแนวระดับ</span>
+</button>
+</div>
 <div class="modes" role="group" aria-label="มุมมอง">
   <button data-mode="0" aria-pressed="true" title="มุมมองปกติ">ปกติ</button>
   <button data-mode="3" aria-pressed="false" title="กว้าง — กว้างกว่าปกติ โค้งน้อยกว่ากว้างพิเศษ">กว้าง</button>
@@ -204,17 +228,11 @@ canvas{display:block;width:100%;height:100%}
   <button class="zpm" id="zOut" aria-label="ซูมออก" title="ซูมออก">−</button>
 </div>
 <div class="zoomnote" id="zoomNote" hidden></div>
-<button class="btn snap" id="snapBtn" title="บันทึกภาพมุมมองปัจจุบัน" aria-label="บันทึกภาพมุมมองปัจจุบัน">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-</button>
 <button class="btn nav prev" id="prevBtn" hidden title="รูปก่อนหน้า" aria-label="รูปก่อนหน้า">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
 </button>
 <button class="btn nav next" id="nextBtn" hidden title="รูปถัดไป" aria-label="รูปถัดไป">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-</button>
-<button class="btn hz" id="hzBtn" aria-expanded="false" aria-controls="hzPanel" title="ปรับแนวระดับ" aria-label="ปรับแนวระดับ">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15l18-5"/><path d="M12 3v3M5 6l2 2M19 6l-2 2"/></svg>
 </button>
 <div class="hzguide" id="hzGuide" hidden></div>
 <section class="hzpanel" id="hzPanel" hidden aria-label="ปรับแนวระดับ">
@@ -575,6 +593,31 @@ $('hzReset').addEventListener('click', () => { hzQ.identity(); hzBase.identity()
 ['hzRoll', 'hzPitch'].forEach(id => { $(id).addEventListener('input', hzApply); $(id).addEventListener('change', hzSave); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !hzPanel.hidden){ hzClose(); hzSave(); } });
 
+// ---------- เมนู ⋯ และซ่อน UI อัตโนมัติ ----------
+const menu = $('menu'), moreBtn = $('moreBtn');
+const menuSet = open => { menu.hidden = !open; moreBtn.setAttribute('aria-expanded', String(open)); };
+moreBtn.addEventListener('click', () => menuSet(menu.hidden));
+menu.addEventListener('click', e => { if (e.target.closest('.btn')) setTimeout(() => menuSet(false), 0); });
+document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && !moreBtn.contains(e.target)) menuSet(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) menuSet(false); });
+
+const UI_IDLE_MS = 4000;
+let uiT = 0, uiHidden = false, tap = null;
+const uiBusy = () => dragging || !hzPanel.hidden || sheet.classList.contains('on') || !menu.hidden;
+function uiShow(){ if (uiHidden){ document.body.classList.remove('idle'); uiHidden = false; } clearTimeout(uiT); uiT = setTimeout(uiIdle, UI_IDLE_MS); }
+function uiHide(){ clearTimeout(uiT); document.body.classList.add('idle'); uiHidden = true; }
+function uiIdle(){ if (uiBusy()) uiT = setTimeout(uiIdle, 1000); else uiHide(); }
+stage.addEventListener('pointerdown', e => { tap = { x: e.clientX, y: e.clientY, t: performance.now(), wasHidden: uiHidden, multi: pointers.size > 1 }; });
+stage.addEventListener('pointermove', e => { if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap = null; });
+stage.addEventListener('pointerup', e => {
+  const t = tap; tap = null;
+  if (t && !t.multi && !t.wasHidden && performance.now() - t.t < 350) uiHide();       // แตะที่ภาพตอน UI แสดงอยู่ = ซ่อน (ตอนซ่อนอยู่ การแตะจะเรียกกลับมา)
+});
+stage.addEventListener('pointercancel', () => { tap = null; });
+document.addEventListener('pointerdown', uiShow);                                     // ทำงานหลัง handler ของ stage (bubble) จึงเก็บสถานะเดิมไว้ใน tap ได้
+['keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, uiShow, { passive: true }));
+uiShow();
+
 // ---------- loop ----------
 const target = new THREE.Vector3();
 let t0 = performance.now();
@@ -603,6 +646,7 @@ function loop(now){
   const lim = THREE.MathUtils.degToRad(55);
   U.shift.value = Math.tan(THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)), -lim, lim));
   drawCompass();
+  moreBtn.classList.toggle('has', gyroOn || hzBtn.classList.contains('has'));
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
