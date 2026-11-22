@@ -76,6 +76,11 @@ canvas{display:block;width:100%;height:100%}
   max-width:min(92vw,480px);padding:10px 14px;border-radius:10px;background:var(--glass);backdrop-filter:blur(8px);
   font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.on{opacity:1}
+/* image status chip (ตัวอย่าง → ภาพเต็ม / ความละเอียด) */
+.chip{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 148px);max-width:min(72vw,380px);
+  padding:5px 10px;border-radius:12px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid var(--glass-line);font-size:11px;line-height:1.45;pointer-events:none}
+.chip.warn{border-color:var(--accent)}
 /* Drive folder browser */
 .sheet{position:fixed;left:0;right:0;bottom:0;height:85%;display:none;flex-direction:column;
   background:rgba(22,24,27,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
@@ -209,6 +214,7 @@ canvas{display:block;width:100%;height:100%}
 </section>
 <div class="drop" id="drop">วางรูป 360 ที่นี่</div>
 <div class="toast" id="toast"></div>
+<div class="chip" id="chip" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -238,7 +244,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, 1, 1, 1100);   // used for orientation only
-const maxTex = Math.min(renderer.capabilities.maxTextureSize, 8192);
+// ค่าเริ่มต้นจำกัดที่ 8192 เพื่อกันหน่วยความจำมือถือเต็ม — เติม ?full=1 ท้ายลิงก์เพื่อใช้ขนาดสูงสุดที่ GPU รองรับ (ไม่ย่อรูปถ้าไม่เกิน)
+const FULL = /[?&]full=1\b/.test(location.search), DEBUG = /[?&]debug=1\b/.test(location.search);
+const maxTex = FULL ? renderer.capabilities.maxTextureSize : Math.min(renderer.capabilities.maxTextureSize, 8192);
 const U = {
   tex: { value: null }, mode: { value: 0 }, rot: { value: new THREE.Matrix3() },
   t: { value: 1 }, ks: { value: 1 }, aspect: { value: 1 }, shift: { value: 0 },
@@ -293,8 +301,10 @@ let dragging = false, interacted = false;
 const pointers = new Map();
 let lastX = 0, lastY = 0, lastT = 0, pinchDist = 0;
 
-function setPano(img, name, key){
-  // Downscale if bigger than GPU allows (Osmo 360 photos can exceed 8K)
+// opt.keep = สลับภาพ (ตัวอย่าง → ภาพเต็ม) โดยคงมุมมองและสไลเดอร์ปรับระดับไว้ · คืนค่าขนาดต้นฉบับ/ขนาดที่ส่งเข้า GPU
+function setPano(img, name, key, opt = {}){
+  const t0 = performance.now(); shown = img;
+  // Downscale only if bigger than the GPU limit (Osmo 360 120MP photos are 15520 px wide)
   let src = img, w = img.width, h = img.height;
   if (w > maxTex){
     const s = maxTex / w, c = document.createElement('canvas');
@@ -314,10 +324,13 @@ function setPano(img, name, key){
   U.tex.value = tex;
   U.th0.value = THREE.MathUtils.degToRad((180 - vDeg) / 2);
   U.thLen.value = THREE.MathUtils.degToRad(vDeg);
-  lon = 0; lat = 0; vLon = vLat = 0;
   $('title').textContent = name;
-  hzLoad(key);
-  if (Math.abs(aspect - 2) > 0.05) toast(`รูปไม่ใช่สัดส่วน 2:1 (${aspect.toFixed(2)}:1) — แสดงเป็นพาโนรามาบางส่วน`);
+  if (!opt.keep){
+    lon = 0; lat = 0; vLon = vLat = 0;
+    hzLoad(key);
+    if (Math.abs(aspect - 2) > 0.05) toast(`รูปไม่ใช่สัดส่วน 2:1 (${aspect.toFixed(2)}:1) — แสดงเป็นพาโนรามาบางส่วน`);
+  }
+  return { w, h, tw: src.width, th: src.height, ms: Math.round(performance.now() - t0) };
 }
 
 // ---------- demo pano (test grid) ----------
@@ -527,6 +540,34 @@ function loop(now){
 
 // ---------- files / gallery ----------
 const items = [];
+let current = null;                       // item ที่กำลังแสดง
+let shown = null;                         // รูป (img/canvas) ที่ส่งเข้า setPano ล่าสุด — ใช้เช็คว่ากำลังโชว์ภาพตัวอย่างอยู่ไหม
+
+// ป้ายสถานะมุมซ้ายล่าง: ตัวอย่าง → ภาพเต็ม / ความละเอียดจริง / ถูกย่อหรือไม่
+const chip = $('chip'); let chipT;
+function setChip(msg, o = {}){
+  clearTimeout(chipT);
+  if (!msg){ chip.hidden = true; return; }
+  chip.textContent = msg; chip.classList.toggle('warn', !!o.warn); chip.hidden = false;
+  if (o.ms) chipT = setTimeout(() => { chip.hidden = true; }, o.ms);
+}
+function chipFull(info, extra){
+  const dim = `${info.w}×${info.h}`;
+  if (info.tw < info.w){
+    const gpu = renderer.capabilities.maxTextureSize;
+    const tip = !FULL && gpu > maxTex && info.w <= gpu ? ' · เติม ?full=1 ท้ายลิงก์เพื่อลองภาพเต็ม' : '';
+    setChip(`ภาพถูกย่อเหลือ ${info.tw}×${info.th} ตามข้อจำกัดของ GPU (ต้นฉบับ ${dim})${tip}`, { warn: true });
+  } else setChip(`ภาพเต็ม ${dim}` + (DEBUG && extra ? ' · ' + extra : ''), { ms: DEBUG ? 0 : 5000 });
+}
+
+function makeThumb(item, bg){
+  const b = document.createElement('button');
+  b.className = 'thumb'; b.title = item.name; b.setAttribute('aria-label', item.name);
+  if (bg) b.style.backgroundImage = `url("${bg}")`;
+  b.onclick = () => select(item, b);
+  $('strip').appendChild(b);
+  item.btn = b; return b;
+}
 async function addFiles(files, key){
   const added = [];
   for (const f of files){
@@ -536,11 +577,7 @@ async function addFiles(files, key){
     try { await img.decode(); } catch { toast(`เปิดไฟล์ ${f.name} ไม่ได้`); continue; }
     const item = { name: f.name, img, url, key: key || `file:${f.name}:${f.size}` };
     items.push(item); added.push(item);
-    const b = document.createElement('button');
-    b.className = 'thumb'; b.style.backgroundImage = `url("${url}")`; b.title = f.name; b.setAttribute('aria-label', f.name);
-    b.onclick = () => select(item, b);
-    $('strip').appendChild(b);
-    item.btn = b;
+    makeThumb(item, url);
   }
   if (added.length) select(added[added.length - 1], added[added.length - 1].btn);
   return added;
@@ -548,7 +585,12 @@ async function addFiles(files, key){
 function select(item, btn){
   document.querySelectorAll('.thumb').forEach(t => t.removeAttribute('aria-current'));
   btn.setAttribute('aria-current','true');
-  setPano(item.img, item.name, item.key);
+  const prev = current; current = item;
+  if (prev && prev !== item && prev.drive) prev.img = null;   // ปล่อยหน่วยความจำรูป Drive ที่ไม่ได้ดูแล้ว (เปิดกลับจากแคชได้ทันที)
+  if (item.img){ item.info = setPano(item.img, item.name, item.key); chipFull(item.info); return; }
+  $('title').textContent = item.name;                          // รูป Drive ที่ยังไม่มีภาพเต็มในหน่วยความจำ
+  if (item.preview){ setPano(item.preview, item.name, item.key); setChip('ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…'); }
+  if (item.drive && !item.loading) loadDriveItem(item);
 }
 $('file').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
 
@@ -718,18 +760,108 @@ async function renderFolder(){
     body.appendChild(el);
   }
 }
-async function openDriveImage(f){
-  if (driveCache.has(f.id + f.modifiedTime)){ const it = driveCache.get(f.id + f.modifiedTime); select(it, it.btn); sheet.classList.remove('on'); return; }
+// ---- แคชไฟล์ต้นฉบับในเครื่อง (Cache API) — เปิดซ้ำไม่ต้องโหลดใหม่ จำกัดขนาดรวม ลบตัวที่เก่าสุดก่อน ----
+const CACHE_NAME = 'sv360-img', CACHE_CAP = 300 * 1048576, CACHE_IDX = 'sv360.cache.idx';
+const cacheUrl = k => '/__sv360/' + encodeURIComponent(k);
+function idxRead(){ try { const a = JSON.parse(load(CACHE_IDX)); return Array.isArray(a) ? a : []; } catch { return []; } }
+async function cacheGet(k){
   try {
-    const r = await api(`${API}/${f.id}?alt=media`, true);
-    const total = +f.size || +r.headers.get('content-length') || 0;
-    const reader = r.body.getReader(), chunks = []; let got = 0;
-    for (;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length;
-      toast(`กำลังโหลด ${f.name}${total ? ` ${Math.round(got / total * 100)}%` : ''}`); }
-    const file = new File(chunks, f.name, { type: f.mimeType || 'image/jpeg' });
-    const [it] = await addFiles([file], 'drive:' + f.id);
-    if (it){ driveCache.set(f.id + f.modifiedTime, it); sheet.classList.remove('on'); toast(f.name); }
-  } catch (e){ toast(`โหลด ${f.name} ไม่ได้ (${e.message})`); }
+    if (!window.caches) return null;
+    const c = await caches.open(CACHE_NAME), r = await c.match(cacheUrl(k));
+    if (!r) return null;
+    const idx = idxRead(), e = idx.find(x => x.k === k);
+    if (e){ e.t = Date.now(); store(CACHE_IDX, JSON.stringify(idx)); }
+    return await r.blob();
+  } catch { return null; }
+}
+async function cachePut(k, file){
+  try {
+    if (!window.caches || file.size > CACHE_CAP) return;
+    const c = await caches.open(CACHE_NAME);
+    await c.put(cacheUrl(k), new Response(file, { headers: { 'content-type': file.type || 'image/jpeg' } }));
+    const idx = idxRead().filter(x => x.k !== k); idx.push({ k, size: file.size, t: Date.now() });
+    idx.sort((a, b) => a.t - b.t);
+    let total = idx.reduce((s, x) => s + x.size, 0);
+    while (total > CACHE_CAP && idx.length > 1){ const o = idx.shift(); total -= o.size; await c.delete(cacheUrl(o.k)); }
+    for (const rq of await c.keys()){                           // เก็บกวาดไฟล์ที่ไม่อยู่ในดัชนี (เช่นล้าง localStorage ไปแล้ว)
+      const p = new URL(rq.url).pathname;
+      if (!idx.some(x => cacheUrl(x.k) === p)) await c.delete(rq);
+    }
+    store(CACHE_IDX, JSON.stringify(idx));
+  } catch {}
+}
+
+// ไฟล์ต้นฉบับครบทุกไบต์ (ไม่ใช่ภาพย่อ): แคชก่อน ไม่มีค่อยโหลดจาก Drive แล้วตรวจขนาดให้ตรงกับที่ Drive แจ้ง
+async function getFullFile(f, onProg){
+  const k = `${f.id}/${f.modifiedTime}`;
+  const hit = await cacheGet(k);
+  if (hit) return { file: new File([hit], f.name, { type: hit.type || f.mimeType || 'image/jpeg' }), cached: true, put: Promise.resolve() };
+  const r = await api(`${API}/${f.id}?alt=media`, true);
+  const total = +f.size || +r.headers.get('content-length') || 0;
+  const reader = r.body.getReader(), chunks = []; let got = 0;
+  for (;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; if (onProg) onProg(got, total); }
+  if (+f.size && got !== +f.size) throw new Error('ไฟล์โหลดไม่ครบ');
+  const file = new File(chunks, f.name, { type: f.mimeType || 'image/jpeg' });
+  return { file, cached: false, put: cachePut(k, file) };
+}
+// ภาพตัวอย่าง: ภาพย่อ 2048 px จาก Google (ย่อฝั่งเซิร์ฟเวอร์ ไฟล์เล็ก) — ใช้เป็น texture ได้เฉพาะถ้าเซิร์ฟเวอร์อนุญาต CORS ถ้าไม่ได้ก็ข้ามไปเฉยๆ
+function loadPreview(f){
+  return new Promise(res => {
+    if (!f.thumbnailLink || !/=s\d+$/.test(f.thumbnailLink)) return res(null);
+    const im = new Image(); im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer';
+    im.onload = () => res(im); im.onerror = () => res(null);
+    im.src = f.thumbnailLink.replace(/=s\d+$/, '=s2048');
+  });
+}
+async function decodeFile(file){
+  const url = URL.createObjectURL(file), img = new Image(); img.src = url;
+  try { await img.decode(); } finally { URL.revokeObjectURL(url); }
+  return img;
+}
+function driveThumb(item, f){
+  if (!f.thumbnailLink) return;
+  const im = new Image(); im.referrerPolicy = 'no-referrer';
+  im.onload = () => { item.btn.style.backgroundImage = `url("${im.src}")`; };
+  im.src = f.thumbnailLink.replace(/=s\d+$/, '=s192');
+}
+
+async function loadDriveItem(it){
+  const f = it.drive, stillCurrent = () => current === it;
+  const md = f.imageMediaMetadata || {}, orig = md.width && md.height ? ` · ต้นฉบับ ${md.width}×${md.height}` : '';
+  const isPreview = () => !!it.preview && shown === it.preview;
+  it.loading = true; const t0 = performance.now();
+  setChip('กำลังเปิด…' + orig);
+  try {
+    if (!it.preview) loadPreview(f).then(im => {                 // 1) ภาพตัวอย่างขนานกับดาวน์โหลดจริง
+      if (!im) return; it.preview = im;
+      if (!it.img && stillCurrent()){ setPano(im, it.name, it.key); setChip('ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…' + orig); }
+    });
+    const t1 = performance.now();                                 // 2) ไฟล์ต้นฉบับ (แคช → Drive)
+    const { file, cached, put } = await getFullFile(f, (got, total) => {
+      if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดภาพเต็ม${total ? ' ' + Math.round(got / total * 100) + '%' : ''}${orig}`);
+    });
+    const t2 = performance.now();
+    const img = await decodeFile(file);
+    const t3 = performance.now();
+    if (!stillCurrent()){ await put; return; }                    // ผู้ใช้ไปดูรูปอื่นแล้ว: เก็บไฟล์ลงแคชไว้ให้เปิดครั้งหน้าเร็ว
+    const keep = isPreview();                                     // สลับตัวอย่าง→ภาพเต็มโดยไม่เสียมุมที่กำลังดู
+    it.img = img;
+    it.info = setPano(img, it.name, it.key, { keep });
+    chipFull(it.info, `${cached ? 'จากแคช' : 'โหลด'} ${((t2 - t1) / 1000).toFixed(1)}s · decode ${Math.round(t3 - t2)}ms · texture ${it.info.ms}ms · รวม ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+  } catch (e){
+    if (stillCurrent()) setChip(isPreview() ? 'โหลดภาพเต็มไม่สำเร็จ — ตอนนี้เห็นแค่ภาพตัวอย่างความละเอียดต่ำ' : '', { warn: true });
+    toast(`โหลด ${f.name} ไม่ได้ (${e.message})`);
+  } finally { it.loading = false; }
+}
+function openDriveImage(f){
+  const ck = f.id + f.modifiedTime;
+  let it = driveCache.get(ck);
+  if (!it){
+    it = { name: f.name, key: 'drive:' + f.id, drive: f, img: null, preview: null, loading: false };
+    items.push(it); makeThumb(it, null); driveThumb(it, f); driveCache.set(ck, it);
+  }
+  sheet.classList.remove('on');
+  select(it, it.btn);
 }
 
 $('driveBtn').addEventListener('click', () => {
