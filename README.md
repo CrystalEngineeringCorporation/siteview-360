@@ -26,3 +26,5 @@
 4. OAuth consent screen → External → scope `drive.readonly` → เพิ่มอีเมลทีมใน Test users
 5. Credentials → OAuth client ID (Web) → Authorized JavaScript origins: `https://weerachid2540.github.io`
 6. ใส่ `CLIENT_ID` — ทุกคนต้องมีสิทธิ์ดูโฟลเดอร์นั้นอยู่แล้ว
+- บันทึกภาพมุมมองปัจจุบัน: ปุ่มกล้อง (ขวา) บันทึกเป็น JPG พร้อมแถบโลโก้/ชื่อรูป/วันที่/มุมมอง — บนมือถือเปิดหน้าต่างแชร์ (บันทึกลงรูปภาพ/ส่ง LINE ได้) บนคอมดาวน์โหลดไฟล์
+- รูปก่อนหน้า/ถัดไป: ปุ่มลูกศรซ้าย-ขวา (โชว์เมื่อมีมากกว่า 1 รูป) หรือคีย์ ←/→ (PageUp/PageDown)
