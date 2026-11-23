@@ -125,6 +125,7 @@ body.grid-on .grid{display:block}
 .nitem.c-r{--pc:#e5484d}.nitem.c-g{--pc:#30a46c}
 .nitem b{flex:none;color:var(--muted);font-weight:500;min-width:1.4em}
 .pin.ghost{position:fixed;z-index:7;pointer-events:none;opacity:.95}
+body.notes-off .pins{display:none}
 body.noting #stage{cursor:crosshair}
 .hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:14px 18px;border-radius:14px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -198,11 +199,11 @@ body.noting #stage{cursor:crosshair}
 .hz.has::after,#moreBtn.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
 #moreBtn{position:relative}
 .menu{position:fixed;z-index:5;right:12px;top:calc(env(safe-area-inset-top,0px) + 62px);display:flex;flex-direction:column;gap:4px;padding:8px;min-width:200px;
+  max-height:calc(100vh - env(safe-area-inset-top,0px) - 62px - env(safe-area-inset-bottom,0px) - 150px);overflow-y:auto;overscroll-behavior:contain;
   border-radius:16px;border:1px solid var(--glass-line);background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .menu[hidden]{display:none}
 .menu .btn{position:relative;width:100%;justify-content:flex-start;padding:0 12px;border-radius:12px;background:none;border-color:transparent}
 .menu .btn .lbl{display:inline}
-.menu{max-height:calc(100vh - 90px);overflow-y:auto}
 .mzoom{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;height:44px;font-size:14px;font-variant-numeric:tabular-nums}
 .mzoom[hidden]{display:none}
 .mzoom button{appearance:none;border:1px solid var(--glass-line);background:none;color:var(--ink);width:46px;height:36px;border-radius:12px;font:inherit;font-size:22px;line-height:1;cursor:pointer}
@@ -276,6 +277,10 @@ body.idle .bar>*{pointer-events:none}
 <button class="btn" id="notesBtn" title="รายการโน้ตของรูปนี้">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>
   <span class="lbl">รายการโน้ต</span>
+</button>
+<button class="btn" id="notesVisBtn" title="ซ่อน/แสดงหมุดโน้ตบนภาพ">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+  <span class="lbl" id="notesVisLbl">ซ่อนโน้ต</span>
 </button>
 <button class="btn" id="adjBtn" aria-pressed="false" title="ปรับสว่าง/คอนทราสต์">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>
@@ -395,6 +400,8 @@ body.idle .bar>*{pointer-events:none}
     <input type="range" id="adjC" min="60" max="220" step="1" value="100"></label>
   <label class="hzrow"><span>ดึงส่วนมืด <output id="adjGV">0</output></span>
     <input type="range" id="adjG" min="0" max="100" step="1" value="0"></label>
+  <label class="hzrow"><span>ความคมชัด <output id="adjSV">0</output></span>
+    <input type="range" id="adjS" min="0" max="100" step="1" value="0"></label>
   <p class="hz-tip">ช่วยดูรอยร้าว/รายละเอียดในที่มืด ใช้ชั่วคราว ไม่เปลี่ยนไฟล์รูป (ภาพที่บันทึกจะติดค่านี้ไปด้วย)</p>
 </section>
 <div class="hint" id="hint">
@@ -480,7 +487,7 @@ const U = {
   t: { value: 1 }, ks: { value: 1 }, aspect: { value: 1 }, shift: { value: 0 },
   fwd: { value: new THREE.Vector3(0, 0, -1) }, rgt: { value: new THREE.Vector3(1, 0, 0) },
   th0: { value: 0 }, thLen: { value: Math.PI }, corr: { value: new THREE.Matrix3() },
-  bright: { value: 0 }, contrast: { value: 1 }, gam: { value: 1 }
+  bright: { value: 0 }, contrast: { value: 1 }, gam: { value: 1 }, sharp: { value: 0 }, px: { value: new THREE.Vector2(0.002, 0.002) }
 };
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
   uniforms: U, depthTest: false, depthWrite: false,
@@ -488,11 +495,10 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
   fragmentShader: `
     precision highp float;
     uniform sampler2D tex; uniform int mode; uniform mat3 rot, corr;
-    uniform float t, ks, aspect, shift, th0, thLen, bright, contrast, gam; uniform vec3 fwd, rgt;
+    uniform float t, ks, aspect, shift, th0, thLen, bright, contrast, gam, sharp; uniform vec3 fwd, rgt; uniform vec2 px;
     varying vec2 vUv;
     const float TAU = 6.28318530718;
-    void main(){
-      vec2 n = vUv * 2.0 - 1.0;
+    vec3 col(vec2 n){
       vec3 d;
       if (mode == 1){                       // stereographic: fov spans the shorter screen side
         vec2 p = n * vec2(aspect, 1.0) / min(aspect, 1.0);
@@ -509,9 +515,17 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
       d = normalize(corr * d);               // horizon correction (per image)
       float ph = atan(d.z, d.x); if (ph < 0.0) ph += TAU;
       float v = (acos(clamp(d.y, -1.0, 1.0)) - th0) / thLen;
-      if (v < 0.0 || v > 1.0){ gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
-      vec3 c = texture2D(tex, vec2(ph / TAU, 1.0 - v)).rgb;
-      c = pow(c, vec3(gam));                 // ดึงรายละเอียดส่วนมืด (gam<1)
+      if (v < 0.0 || v > 1.0) return vec3(0.0);
+      return texture2D(tex, vec2(ph / TAU, 1.0 - v)).rgb;
+    }
+    void main(){
+      vec2 n = vUv * 2.0 - 1.0;
+      vec3 c = col(n);
+      if (sharp > 0.0){                      // unsharp mask ระดับพิกเซลจอ: เทียบกับค่าเฉลี่ย 4 พิกเซลข้างเคียง
+        vec3 b = (col(n + vec2(px.x, 0.0)) + col(n - vec2(px.x, 0.0)) + col(n + vec2(0.0, px.y)) + col(n - vec2(0.0, px.y))) * 0.25;
+        c = c + (c - b) * sharp;
+      }
+      c = pow(max(c, 0.0), vec3(gam));       // ดึงรายละเอียดส่วนมืด (gam<1)
       gl_FragColor = vec4(clamp((c - 0.5) * contrast + 0.5 + bright, 0.0, 1.0), 1.0);
     }`
 }));
@@ -523,6 +537,7 @@ function resize(){
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
   U.aspect.value = w / h;
+  U.px.value.set(2 / renderer.domElement.width, 2 / renderer.domElement.height);
 }
 addEventListener('resize', resize); resize();
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); });
@@ -806,8 +821,24 @@ function uiHide(){ clearTimeout(uiT); document.body.classList.add('idle'); uiHid
 function uiIdle(){ if (uiBusy()) uiT = setTimeout(uiIdle, 1000); else uiHide(); }
 stage.addEventListener('pointerdown', e => { tap = { x: e.clientX, y: e.clientY, t: performance.now(), wasHidden: uiHidden, multi: pointers.size > 1 }; });
 stage.addEventListener('pointermove', e => { if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap = null; });
+// แตะสองครั้ง: ซูมเข้าตรงจุดที่แตะ (FOV ÷ 2.5) · ถ้าซูมอยู่แล้ว = กลับค่าเริ่มต้น
+let lastTap = null;
+function dblZoom(cx, cy){
+  const base = MODES[mode].fov, zoomedIn = fov < base / 1.5;
+  const fov1 = zoomedIn ? base : THREE.MathUtils.clamp(base / 2.5, fovMin(), MODES[mode].max);
+  markInteracted(); vLon = vLat = 0; lastInput = performance.now();
+  if (gyroOn || zoomedIn){ navAnim = { t: performance.now(), dur: 350, lon0: lon, lat0: lat, dLon: 0, lat1: lat, fov0: fov, fov1 }; return; }
+  unprojectNdc(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2, _pd, true);
+  const lat1 = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(_pd.y, -1, 1))), lon1 = THREE.MathUtils.radToDeg(Math.atan2(_pd.z, _pd.x)) + 90;
+  navAnim = { t: performance.now(), dur: 450, lon0: lon, lat0: lat, dLon: ((lon1 - lon) % 360 + 540) % 360 - 180, lat1, fov0: fov, fov1 };
+}
 stage.addEventListener('pointerup', e => {
   const t = tap; tap = null;
+  if (t && !t.multi && !noting && performance.now() - t.t < 350){
+    const now = performance.now();
+    if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40){ lastTap = null; dblZoom(e.clientX, e.clientY); }
+    else lastTap = { x: e.clientX, y: e.clientY, t: now };
+  } else lastTap = null;
   if (t && !t.multi && !t.wasHidden && performance.now() - t.t < 350) uiHide();       // แตะที่ภาพตอน UI แสดงอยู่ = ซ่อน (ตอนซ่อนอยู่ การแตะจะเรียกกลับมา)
 });
 stage.addEventListener('pointercancel', () => { tap = null; });
@@ -822,9 +853,10 @@ applyGrid();
 $('gridBtn').addEventListener('click', () => { gridOn = !gridOn; applyGrid(); store('sv360.grid', gridOn ? '1' : null); toast(gridOn ? 'เส้นกริด: เปิด (เส้นเหลือง = กลางจอ)' : 'เส้นกริด: ปิด'); });
 
 const adjPanel = $('adjPanel');
-const adjIsDef = () => U.bright.value === 0 && U.contrast.value === 1 && U.gam.value === 1;
+const adjIsDef = () => U.bright.value === 0 && U.contrast.value === 1 && U.gam.value === 1 && U.sharp.value === 0;
 function adjApply(){
-  const b = +$('adjB').value, c = +$('adjC').value, g = +$('adjG').value;
+  const b = +$('adjB').value, c = +$('adjC').value, g = +$('adjG').value, sh = +$('adjS').value;
+  U.sharp.value = sh / 100 * 1.5; $('adjSV').textContent = sh;
   U.bright.value = b / 100; U.contrast.value = c / 100; U.gam.value = 1 / (1 + g / 100 * 1.2);
   $('adjBV').textContent = b; $('adjCV').textContent = c + '%'; $('adjGV').textContent = g;
   $('adjBtn').setAttribute('aria-pressed', String(!adjIsDef()));
@@ -832,8 +864,8 @@ function adjApply(){
 const adjClose = () => { adjPanel.hidden = true; };
 $('adjBtn').addEventListener('click', () => { adjPanel.hidden = !adjPanel.hidden; if (!adjPanel.hidden && !hzPanel.hidden){ hzClose(); hzSave(); } });
 $('adjDone').addEventListener('click', adjClose);
-$('adjReset').addEventListener('click', () => { $('adjB').value = 0; $('adjC').value = 100; $('adjG').value = 0; adjApply(); });
-['adjB', 'adjC', 'adjG'].forEach(id => $(id).addEventListener('input', adjApply));
+$('adjReset').addEventListener('click', () => { $('adjB').value = 0; $('adjC').value = 100; $('adjG').value = 0; $('adjS').value = 0; adjApply(); });
+['adjB', 'adjC', 'adjG', 'adjS'].forEach(id => $(id).addEventListener('input', adjApply));
 addEventListener('keydown', e => { if (e.key === 'Escape' && !adjPanel.hidden) adjClose(); });
 
 // โน้ต: เก็บเป็นทิศในกรอบพิกัดของรูป (ไม่ขึ้นกับมุมมอง/โหมด/ค่าปรับแนวระดับ) ต่อรูป ในเครื่องนี้
@@ -883,7 +915,7 @@ async function noteEdit(i){
   notesSave(); notesRender(); notesLayout(); notesSync();
 }
 // หน้าจอ (NDC) → ทิศในกรอบรูป (ย้อนสูตรเดียวกับ fragment shader)
-function unprojectNdc(nx, ny, out){
+function unprojectNdc(nx, ny, out, raw){
   const m = U.mode.value, asp = U.aspect.value;
   if (m === 1){
     const px = nx * asp / Math.min(asp, 1), py = ny / Math.min(asp, 1), len = Math.hypot(px, py), r = len * U.ks.value, a = 2 * Math.atan(r * 0.5);
@@ -893,7 +925,7 @@ function unprojectNdc(nx, ny, out){
     const px = nx * asp, py = ny;
     out.set(0, 0, 0).addScaledVector(U.rgt.value, px * U.t.value).addScaledVector(_pa.set(0, 1, 0), py * U.t.value + U.shift.value).add(U.fwd.value);
   } else out.set(nx * asp * U.t.value, ny * U.t.value, -1).applyMatrix3(U.rot.value);
-  return out.applyMatrix3(U.corr.value).normalize();
+  return raw ? out.normalize() : out.applyMatrix3(U.corr.value).normalize();
 }
 // ทิศในกรอบรูป → หน้าจอ (NDC); คืน false ถ้าอยู่นอกมุมมอง
 function projectDir(x, y, z, o){
@@ -928,6 +960,7 @@ async function placeNoteAt(cx, cy){
   const pt = { x: +_pd.x.toFixed(5), y: +_pd.y.toFixed(5), z: +_pd.z.toFixed(5) };   // จดทิศไว้ก่อนเปิดกล่องข้อความ (ผู้ใช้อาจหมุนภาพระหว่างพิมพ์)
   const r = await noteDialog({ title: 'โน้ตใหม่' });
   if (!r) return;
+  if (notesOff) notesVis(false);
   notes.push({ ...pt, t: r.text, c: r.c });
   notesSave(); notesRender(); notesLayout(); notesSync();
 }
@@ -969,6 +1002,13 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && noting) noteMode(fa
 // ข้ามไปโน้ต: หมุนภาพไปหาโน้ตทีละจุด (เรียงตามลำดับที่วาง)
 const noteNav = $('noteNav'), notesPanel = $('notesPanel');
 let selNote = -1, selT = 0, navAnim = null;
+let notesOff = load('sv360.notesoff') === '1';
+function notesVis(off){
+  notesOff = off; document.body.classList.toggle('notes-off', off); $('notesVisLbl').textContent = off ? 'แสดงโน้ต' : 'ซ่อนโน้ต';
+  store('sv360.notesoff', off ? '1' : null);
+}
+notesVis(notesOff);
+$('notesVisBtn').addEventListener('click', () => { notesVis(!notesOff); toast(notesOff ? 'ซ่อนโน้ตบนภาพแล้ว (ภาพที่บันทึกจะไม่มีโน้ต)' : 'แสดงโน้ตบนภาพ'); });
 function notesSync(){
   noteNav.hidden = !notes.length;
   $('nCount').textContent = notes.length ? (selNote >= 0 && selNote < notes.length ? selNote + 1 : '–') + '/' + notes.length : '–';
@@ -977,20 +1017,21 @@ function notesSync(){
 }
 function noteGo(i){
   if (!notes.length) return;
-  i = (i + notes.length) % notes.length; const n = notes[i];
+  i = (i + notes.length) % notes.length; const n = notes[i]; if (notesOff) notesVis(false);
   selNote = i; clearTimeout(selT); selT = setTimeout(() => { selNote = -1; notesSync(); }, 5000); notesSync();
   if (gyroOn){ toast('โน้ต ' + (i + 1) + ': ' + n.t); return; }
   _pa.set(n.x, n.y, n.z).applyMatrix3(_pm.copy(U.corr.value).transpose());     // ทิศในกรอบกล้อง → lon/lat ที่ loop ใช้
   const lat1 = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(_pa.y, -1, 1))), lon1 = THREE.MathUtils.radToDeg(Math.atan2(_pa.z, _pa.x)) + 90;
   let dl = ((lon1 - lon) % 360 + 540) % 360 - 180;                              // ทางสั้นสุด
   markInteracted(); vLon = vLat = 0; lastInput = performance.now();
-  navAnim = { t: performance.now(), dur: 650, lon0: lon, lat0: lat, dLon: dl, lat1 };
+  navAnim = { t: performance.now(), dur: 650, lon0: lon, lat0: lat, dLon: dl, lat1, fov1: null };
 }
 function navStep(now){
   if (!navAnim) return;
   if (dragging){ navAnim = null; return; }
   const k = Math.min(1, (now - navAnim.t) / navAnim.dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
   lon = navAnim.lon0 + navAnim.dLon * e; lat = navAnim.lat0 + (navAnim.lat1 - navAnim.lat0) * e;
+  if (navAnim.fov1 != null) fov = navAnim.fov0 + (navAnim.fov1 - navAnim.fov0) * e;
   if (k >= 1) navAnim = null;
 }
 $('nNext').addEventListener('click', () => noteGo(selNote < 0 ? 0 : selNote + 1));
@@ -1032,7 +1073,7 @@ function snapOverlay(g, W, H, k){                      // กริด + โน�
     g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
   }
   g.font = `500 ${13 * k}px "IBM Plex Sans Thai", sans-serif`; g.textBaseline = 'middle';
-  for (const n of notes){
+  for (const n of (notesOff ? [] : notes)){
     if (!projectDir(n.x, n.y, n.z, _po) || Math.abs(_po.x) > 1.05 || Math.abs(_po.y) > 1.05) continue;
     const x = (_po.x + 1) / 2 * W, y = (1 - _po.y) / 2 * H, r = 9 * k;
     const txt = fitText(g, n.t, 0.42 * W), tw = g.measureText(txt).width;
