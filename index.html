@@ -79,11 +79,18 @@ body.strip-on .strip:empty{display:none}
   background-size:var(--g) var(--g),var(--g) var(--g),100% 100%,100% 100%;background-position:center,center,0 0,0 0}
 body.grid-on .grid{display:block}
 .pins{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.pin[hidden]{display:none}
 .pin{position:absolute;left:0;top:0;display:flex;align-items:flex-start;gap:6px;pointer-events:auto;cursor:pointer;
   padding:0;border:0;background:none;color:#fff;font:inherit;font-size:13px;will-change:transform}
 .pin i{flex:none;box-sizing:border-box;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6)}
 .pin span{margin-top:-11px;max-width:42vw;padding:3px 8px;border-radius:8px;background:rgba(20,22,26,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pin.flip span{order:-1}
+.notepin{appearance:none;flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--glass-line);background:var(--glass);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:var(--ink);display:grid;place-items:center;padding:0;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.notepin svg{width:22px;height:22px;pointer-events:none}
+.notepin[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
+.modes.open ~ .notepin{display:none}
+.pin.ghost{position:fixed;z-index:7;pointer-events:none;opacity:.95}
 body.noting #stage{cursor:crosshair}
 .hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:14px 18px;border-radius:14px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -131,7 +138,8 @@ body.noting #stage{cursor:crosshair}
 .linkform input{height:42px;border-radius:10px;border:1px solid var(--glass-line);background:var(--soft);color:var(--ink);font:inherit;font-size:16px;padding:0 12px}
 .linkform .btn{align-self:flex-start;background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
 /* view mode switch */
-.modes{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px + var(--sb));display:flex;padding:3px;gap:2px;
+.botleft{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px + var(--sb));display:flex;align-items:center;gap:8px;z-index:3}
+.modes{display:flex;padding:3px;gap:2px;
   border-radius:22px;border:1px solid var(--glass-line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .modes button{appearance:none;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;height:34px;padding:0 12px;border-radius:18px;cursor:pointer}
 .modes button[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;font-weight:600}
@@ -172,10 +180,10 @@ body.noting #stage{cursor:crosshair}
 body.present .toast, body.present .chip, body.present .hint{display:none}
 .exitp{position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px}
 /* ซ่อน UI อัตโนมัติเมื่อไม่ได้แตะ */
-.bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:opacity .35s}
-body.idle .bar,body.idle .modes,body.idle .zoomctl,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
+.bar,.botleft,.zoomctl,.compass,.nav,.strip,.chip{transition:opacity .35s}
+body.idle .bar,body.idle .botleft,body.idle .zoomctl,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
 body.idle .bar>*{pointer-events:none}
-@media (prefers-reduced-motion: reduce){.bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:none}}
+@media (prefers-reduced-motion: reduce){.bar,.botleft,.zoomctl,.compass,.nav,.strip,.chip{transition:none}}
 .hzpanel,.adjpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
   display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--glass-line);
   background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
@@ -231,10 +239,6 @@ body.idle .bar>*{pointer-events:none}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
     <span class="lbl">Google Drive</span>
   </button>
-<button class="btn" id="noteBtn" title="เพิ่มโน้ตบนภาพ">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>
-  <span class="lbl">เพิ่มโน้ตบนภาพ</span>
-</button>
 <button class="btn" id="adjBtn" aria-pressed="false" title="ปรับสว่าง/คอนทราสต์">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>
   <span class="lbl">ปรับภาพ</span>
@@ -277,12 +281,18 @@ body.idle .bar>*{pointer-events:none}
 </button>
 </div>
 <button class="btn exitp" id="exitP" hidden>ออกจากโหมดนำเสนอ</button>
+<div class="botleft" id="botleft">
 <div class="modes" role="group" aria-label="มุมมอง">
   <button data-mode="0" aria-pressed="true" title="มุมมองปกติ">ปกติ</button>
   <button data-mode="3" aria-pressed="false" title="กว้าง — กว้างกว่าปกติ โค้งน้อยกว่ากว้างพิเศษ">กว้าง</button>
   <button data-mode="1" aria-pressed="false" title="กว้างพิเศษ (stereographic)">กว้างพิเศษ</button>
   <button data-mode="2" aria-pressed="false" title="แนวดิ่งตรง ไม่เบี้ยวเวลาก้ม/เงย">ตรง</button>
 </div>
+<button class="notepin" id="noteBtn" aria-pressed="false" title="โน้ต — ลากหมุดไปวางบนภาพ (หรือแตะแล้วแตะจุดบนภาพ)" aria-label="เพิ่มโน้ต: ลากไปวางบนภาพ">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>
+</button>
+</div>
+<div class="pin ghost" id="pinGhost" hidden><i></i></div>
 <div class="zoomctl" id="zoomCtl"><button class="zrd" id="zRead" aria-label="รีเซ็ตซูม" title="แตะเพื่อกลับซูม ×1.0"><b id="zX">×1.0</b><small id="zNote" hidden></small></button></div>
 <button class="btn nav prev" id="prevBtn" hidden title="รูปก่อนหน้า" aria-label="รูปก่อนหน้า">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
@@ -693,7 +703,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!menu.hidden) me
 
 const UI_IDLE_MS = 4000;
 let uiT = 0, uiHidden = false, tap = null;
-const uiBusy = () => dragging || !hzPanel.hidden || !adjPanel.hidden || noting || sheet.classList.contains('on') || !menu.hidden || modesBar.classList.contains('open');
+const uiBusy = () => dragging || !hzPanel.hidden || !adjPanel.hidden || noting || nDrag || sheet.classList.contains('on') || !menu.hidden || modesBar.classList.contains('open');
 function uiShow(){ if (document.body.classList.contains('present')) return; if (uiHidden){ document.body.classList.remove('idle'); uiHidden = false; } clearTimeout(uiT); uiT = setTimeout(uiIdle, UI_IDLE_MS); }
 function uiHide(){ clearTimeout(uiT); document.body.classList.add('idle'); uiHidden = true; }
 function uiIdle(){ if (uiBusy()) uiT = setTimeout(uiIdle, 1000); else uiHide(); }
@@ -797,24 +807,47 @@ function notesLayout(){
   }
 }
 function noteMode(on){ noting = on; document.body.classList.toggle('noting', on); noteBtn.setAttribute('aria-pressed', String(on)); }
-noteBtn.addEventListener('click', () => {
-  if (!U.tex.value){ toast('ยังไม่มีรูป'); return; }
-  if (!noteKey){ toast('รูปนี้ยังบันทึกโน้ตไม่ได้'); return; }
-  noteMode(true); toast('แตะจุดบนภาพที่ต้องการใส่โน้ต');
-});
+function placeNoteAt(cx, cy){
+  const t = prompt('โน้ต (เช่น เหล็กเสริมไม่ครบ)', '');
+  if (!t || !t.trim()) return;
+  unprojectNdc(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2, _pd);
+  notes.push({ x: +_pd.x.toFixed(5), y: +_pd.y.toFixed(5), z: +_pd.z.toFixed(5), t: t.trim().slice(0, 120) });
+  notesSave(); notesRender(); notesLayout();
+}
 let nDown = null;
 stage.addEventListener('pointerdown', e => { nDown = noting && pointers.size <= 1 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; });
 stage.addEventListener('pointerup', e => {
   if (!noting || !nDown) return;
   const d = nDown; nDown = null;
   if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10 || performance.now() - d.t > 500) return;
-  noteMode(false);
-  const t = prompt('โน้ต (เช่น เหล็กเสริมไม่ครบ)', '');
-  if (!t || !t.trim()) return;
-  unprojectNdc(e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2, _pd);
-  notes.push({ x: +_pd.x.toFixed(5), y: +_pd.y.toFixed(5), z: +_pd.z.toFixed(5), t: t.trim().slice(0, 120) });
-  notesSave(); notesRender(); notesLayout();
+  noteMode(false); placeNoteAt(e.clientX, e.clientY);
 });
+// ลากสัญลักษณ์หมุดจากแถบล่างซ้ายไปวางบนภาพ — จุดวางคือปลายหมุด (อยู่เหนือนิ้ว 36px ให้มองเห็น)
+const ghost = $('pinGhost'), GH_OFF = 36;
+let nDrag = null;
+noteBtn.addEventListener('pointerdown', e => {
+  if (!U.tex.value){ toast('ยังไม่มีรูป'); return; }
+  if (!noteKey){ toast('รูปนี้ยังบันทึกโน้ตไม่ได้'); return; }
+  nDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+  try { noteBtn.setPointerCapture(e.pointerId); } catch {}
+});
+noteBtn.addEventListener('pointermove', e => {
+  if (!nDrag || e.pointerId !== nDrag.id) return;
+  if (!nDrag.moved && Math.hypot(e.clientX - nDrag.x, e.clientY - nDrag.y) > 8){ nDrag.moved = true; noteMode(false); ghost.hidden = false; }
+  if (nDrag.moved) ghost.style.transform = `translate(${e.clientX}px,${e.clientY - GH_OFF}px)`;
+});
+function noteDragEnd(e, cancel){
+  if (!nDrag || e.pointerId !== nDrag.id) return;
+  const d = nDrag; nDrag = null; ghost.hidden = true;
+  try { noteBtn.releasePointerCapture(e.pointerId); } catch {}
+  if (cancel) return;
+  if (!d.moved){ noteMode(!noting); if (noting) toast('ลากหมุดไปวางบนภาพ หรือแตะจุดบนภาพ'); return; }   // แตะเฉยๆ = โหมดแตะวาง
+  const x = e.clientX, y = e.clientY - GH_OFF, bb = noteBtn.getBoundingClientRect();
+  if (x < 0 || x > innerWidth || y < 0 || y > innerHeight || (x > bb.left && x < bb.right && y > bb.top && y < bb.bottom)) return;   // ปล่อยนอกภาพ/ที่ปุ่มเดิม = ยกเลิก
+  placeNoteAt(x, y);
+}
+noteBtn.addEventListener('pointerup', e => noteDragEnd(e, false));
+noteBtn.addEventListener('pointercancel', e => noteDragEnd(e, true));
 addEventListener('keydown', e => { if (e.key === 'Escape' && noting) noteMode(false); });
 function snapOverlay(g, W, H, k){                      // กริด + โน้ต ลงในภาพที่บันทึก
   if (gridOn){
