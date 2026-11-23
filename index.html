@@ -386,8 +386,8 @@ const SAFE = /[?&]safe=1\b/.test(location.search), DEBUG = /[?&]debug=1\b/.test(
 const gpuMax = renderer.capabilities.maxTextureSize;
 const TEX_BLANK = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });   // ตัวแทนภาพหลังอัปโหลด (กัน three error ถ้า GPU รีเซ็ตแล้วต้องอัปโหลดซ้ำ)
 // กันแอปหลุดเพราะหน่วยความจำเต็ม (เช่น iPad ตอนอัปโหลดภาพ 15520×7760 เข้า GPU): ก่อนโหลดภาพใหญ่จะจดธงไว้ ถ้าเปิดแอปใหม่แล้วธงยังค้าง = รอบก่อนหลุดตอนโหลด
-// → ลดขนาดสูงสุดของภาพลงเป็นขั้น (12288 → 8192 → 6144 → 4096) และจำไว้ในเครื่อง · ?full=1 = ล้างค่า กลับไปใช้ขนาดเต็ม
-const CAP_STAGES = [12288, 8192, 6144, 4096];
+// → ลดขนาดสูงสุดของภาพลงเป็นขั้น (8192 → 6144 → 4096) และจำไว้ในเครื่อง · ?full=1 = ล้างค่า กลับไปใช้ขนาดเต็ม
+const CAP_STAGES = [8192, 6144, 4096];
 let crashNote = '';
 try {
   if (/[?&]full=1\b/.test(location.search)){ store('sv360.cap', null); store('sv360.busy', null); }
@@ -1318,6 +1318,16 @@ function loadPreview(f){
     im.src = f.thumbnailLink.replace(/=s\d+$/, '=s2048');
   });
 }
+// ภาพย่อขนาด size px จาก Google (ย่อฝั่งเซิร์ฟเวอร์ — ไม่ต้อง decode ไฟล์ต้นฉบับ 120MP ในเครื่อง) ใช้เมื่อเพดานภาพถูกลดเพราะแรมไม่พอ
+function loadThumbAt(f, size){
+  return new Promise(res => {
+    if (!f.thumbnailLink || !/=s\d+$/.test(f.thumbnailLink)) return res(null);
+    const im = new Image(); im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer';
+    const to = setTimeout(() => res(null), 30000);
+    im.onload = () => { clearTimeout(to); res(im); }; im.onerror = () => { clearTimeout(to); res(null); };
+    im.src = f.thumbnailLink.replace(/=s\d+$/, '=s' + size);
+  });
+}
 async function decodeFile(file){
   const url = URL.createObjectURL(file), img = new Image(); img.src = url;
   try { await img.decode(); } finally { URL.revokeObjectURL(url); }
@@ -1341,18 +1351,34 @@ async function loadDriveItem(it){
       if (!im) return; it.preview = im;
       if (!it.img && stillCurrent()){ setPano(im, it.name, it.key); setChip('ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…' + orig); }
     });
+    const big = md.width && md.width > maxTex;                    // เพดานภาพต่ำกว่าต้นฉบับ (แรมน้อย/?safe=1) → ขอภาพย่อจาก Google ก่อน ไม่ decode ต้นฉบับทั้งภาพ
+    if (big){
+      setChip(`กำลังโหลดภาพ ${maxTex}px (ย่อฝั่งเซิร์ฟเวอร์ กันแรมเต็ม)…${orig}`);
+      busyStart(maxTex);
+      const th = await loadThumbAt(f, maxTex);
+      if (th && th.naturalWidth >= Math.min(md.width, maxTex) * 0.9){
+        if (!stillCurrent()) return;
+        const keep = isPreview(); it.img = th;
+        it.info = setPano(th, it.name, it.key, { keep }); it.info.w = md.width; it.info.h = md.height;
+        chipFull(it.info); return;
+      }
+      busyEnd();
+    }
     const t1 = performance.now();                                 // 2) ไฟล์ต้นฉบับ (แคช → Drive)
     const { file, cached, put } = await getFullFile(f, (got, total) => {
       if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดภาพเต็ม${total ? ' ' + Math.round(got / total * 100) + '%' : ''}${orig}`);
     });
     const t2 = performance.now();
     busyStart(Math.min(md.width || 0, maxTex));                    // จดธงก่อน decode ภาพใหญ่ (decode + อัปโหลดคือช่วงที่แรมพุ่ง)
-    const img = await decodeFile(file);
+    let img = null;
+    if (big && window.createImageBitmap){ try { img = await createImageBitmap(file, { resizeWidth: maxTex, resizeQuality: 'high' }); } catch { img = null; } }   // ย่อตอน decode
+    if (!img) img = await decodeFile(file);
     const t3 = performance.now();
     if (!stillCurrent()){ await put; return; }                    // ผู้ใช้ไปดูรูปอื่นแล้ว: เก็บไฟล์ลงแคชไว้ให้เปิดครั้งหน้าเร็ว
     const keep = isPreview();                                     // สลับตัวอย่าง→ภาพเต็มโดยไม่เสียมุมที่กำลังดู
     it.img = img;
     it.info = setPano(img, it.name, it.key, { keep });
+    if (md.width && img.width < md.width){ it.info.w = md.width; it.info.h = md.height; }
     if (img.width * img.height > 30e6){ it.img = null; if (shown === img) shown = null; }   // ภาพใหญ่ไม่เก็บไว้ในแรม (เปิดซ้ำอ่านจากแคช)
     chipFull(it.info, `${cached ? 'จากแคช' : 'โหลด'} ${((t2 - t1) / 1000).toFixed(1)}s · decode ${Math.round(t3 - t2)}ms · texture ${it.info.ms}ms · รวม ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   } catch (e){
