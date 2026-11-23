@@ -71,6 +71,20 @@ body.strip-on .strip:empty{display:none}
   background:#333 center/cover no-repeat;cursor:pointer}
 .thumb[aria-current="true"]{border-color:var(--accent)}
 
+.grid{position:fixed;inset:0;pointer-events:none;z-index:1;display:none;
+  --g:calc(min(100vw,100vh) / 6);
+  background-image:linear-gradient(90deg,rgba(255,255,255,.38) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.38) 1px,transparent 1px),
+    linear-gradient(90deg,transparent calc(50% - 1px),rgba(242,183,5,.9) calc(50% - 1px),rgba(242,183,5,.9) calc(50% + 1px),transparent calc(50% + 1px)),
+    linear-gradient(0deg,transparent calc(50% - 1px),rgba(242,183,5,.9) calc(50% - 1px),rgba(242,183,5,.9) calc(50% + 1px),transparent calc(50% + 1px));
+  background-size:var(--g) var(--g),var(--g) var(--g),100% 100%,100% 100%;background-position:center,center,0 0,0 0}
+body.grid-on .grid{display:block}
+.pins{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.pin{position:absolute;left:0;top:0;display:flex;align-items:flex-start;gap:6px;pointer-events:auto;cursor:pointer;
+  padding:0;border:0;background:none;color:#fff;font:inherit;font-size:13px;will-change:transform}
+.pin i{flex:none;box-sizing:border-box;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6)}
+.pin span{margin-top:-11px;max-width:42vw;padding:3px 8px;border-radius:8px;background:rgba(20,22,26,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pin.flip span{order:-1}
+body.noting #stage{cursor:crosshair}
 .hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:14px 18px;border-radius:14px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   font-size:14px;text-align:center;pointer-events:none;transition:opacity .4s}
@@ -161,13 +175,13 @@ body.present .toast, body.present .chip, body.present .hint{display:none}
 body.idle .bar,body.idle .modes,body.idle .zoomctl,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
 body.idle .bar>*{pointer-events:none}
 @media (prefers-reduced-motion: reduce){.bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:none}}
-.hzpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
+.hzpanel,.adjpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
   display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--glass-line);
   background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
 .hz-head{display:flex;align-items:center;gap:8px}
 .hz-head b{flex:1}
-.hzpanel .btn{height:34px;min-width:0;padding:0 12px;font-size:13px}
-.hzpanel .btn.done{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
+.hzpanel .btn,.adjpanel .btn{height:34px;min-width:0;padding:0 12px;font-size:13px}
+.hzpanel .btn.done,.adjpanel .btn.done{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
 .hzrow{display:flex;flex-direction:column;gap:2px}
 .hzrow span{display:flex;justify-content:space-between;color:var(--muted);font-size:13px}
 .hzrow output{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -216,6 +230,18 @@ body.idle .bar>*{pointer-events:none}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
     <span class="lbl">Google Drive</span>
   </button>
+<button class="btn" id="noteBtn" title="เพิ่มโน้ตบนภาพ">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>
+  <span class="lbl">เพิ่มโน้ตบนภาพ</span>
+</button>
+<button class="btn" id="adjBtn" aria-pressed="false" title="ปรับสว่าง/คอนทราสต์">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>
+  <span class="lbl">ปรับภาพ</span>
+</button>
+<button class="btn" id="gridBtn" aria-pressed="false" title="เส้นกริด">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16v16H4zM9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg>
+  <span class="lbl">เส้นกริด</span>
+</button>
 <button class="btn" id="rotBtn" aria-pressed="false" title="หมุนภาพอัตโนมัติ">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
   <span class="lbl">หมุนอัตโนมัติ</span>
@@ -263,6 +289,8 @@ body.idle .bar>*{pointer-events:none}
 <button class="btn nav next" id="nextBtn" hidden title="รูปถัดไป" aria-label="รูปถัดไป">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
 </button>
+<div class="grid" id="grid"></div>
+<div class="pins" id="pins"></div>
 <div class="hzguide" id="hzGuide" hidden></div>
 <section class="hzpanel" id="hzPanel" hidden aria-label="ปรับแนวระดับ">
   <div class="hz-head">
@@ -275,6 +303,20 @@ body.idle .bar>*{pointer-events:none}
   <label class="hzrow"><span>เอียงหน้า–หลัง <output id="hzPitchV">0.0°</output></span>
     <input type="range" id="hzPitch" min="-15" max="15" step="0.1" value="0"></label>
   <p class="hz-tip">หันมองทางที่เห็นเส้นขอบฟ้าหรือเสาตรงๆ ให้เส้นขอบฟ้าอยู่กลางจอ แล้วปรับจนขนานเส้นไกด์ ค่าบันทึกต่อรูปในเครื่องนี้</p>
+</section>
+<section class="adjpanel" id="adjPanel" hidden aria-label="ปรับภาพ">
+  <div class="hz-head">
+    <b>ปรับภาพ</b>
+    <button class="btn" id="adjReset">รีเซ็ต</button>
+    <button class="btn done" id="adjDone">เสร็จ</button>
+  </div>
+  <label class="hzrow"><span>ความสว่าง <output id="adjBV">0</output></span>
+    <input type="range" id="adjB" min="-40" max="40" step="1" value="0"></label>
+  <label class="hzrow"><span>คอนทราสต์ <output id="adjCV">100%</output></span>
+    <input type="range" id="adjC" min="60" max="220" step="1" value="100"></label>
+  <label class="hzrow"><span>ดึงส่วนมืด <output id="adjGV">0</output></span>
+    <input type="range" id="adjG" min="0" max="100" step="1" value="0"></label>
+  <p class="hz-tip">ช่วยดูรอยร้าว/รายละเอียดในที่มืด ใช้ชั่วคราว ไม่เปลี่ยนไฟล์รูป (ภาพที่บันทึกจะติดค่านี้ไปด้วย)</p>
 </section>
 <div class="hint" id="hint">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>
@@ -335,7 +377,8 @@ const U = {
   tex: { value: null }, mode: { value: 0 }, rot: { value: new THREE.Matrix3() },
   t: { value: 1 }, ks: { value: 1 }, aspect: { value: 1 }, shift: { value: 0 },
   fwd: { value: new THREE.Vector3(0, 0, -1) }, rgt: { value: new THREE.Vector3(1, 0, 0) },
-  th0: { value: 0 }, thLen: { value: Math.PI }, corr: { value: new THREE.Matrix3() }
+  th0: { value: 0 }, thLen: { value: Math.PI }, corr: { value: new THREE.Matrix3() },
+  bright: { value: 0 }, contrast: { value: 1 }, gam: { value: 1 }
 };
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
   uniforms: U, depthTest: false, depthWrite: false,
@@ -343,7 +386,7 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
   fragmentShader: `
     precision highp float;
     uniform sampler2D tex; uniform int mode; uniform mat3 rot, corr;
-    uniform float t, ks, aspect, shift, th0, thLen; uniform vec3 fwd, rgt;
+    uniform float t, ks, aspect, shift, th0, thLen, bright, contrast, gam; uniform vec3 fwd, rgt;
     varying vec2 vUv;
     const float TAU = 6.28318530718;
     void main(){
@@ -365,7 +408,9 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
       float ph = atan(d.z, d.x); if (ph < 0.0) ph += TAU;
       float v = (acos(clamp(d.y, -1.0, 1.0)) - th0) / thLen;
       if (v < 0.0 || v > 1.0){ gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
-      gl_FragColor = texture2D(tex, vec2(ph / TAU, 1.0 - v));
+      vec3 c = texture2D(tex, vec2(ph / TAU, 1.0 - v)).rgb;
+      c = pow(c, vec3(gam));                 // ดึงรายละเอียดส่วนมืด (gam<1)
+      gl_FragColor = vec4(clamp((c - 0.5) * contrast + 0.5 + bright, 0.0, 1.0), 1.0);
     }`
 }));
 quad.frustumCulled = false;
@@ -412,7 +457,7 @@ function setPano(img, name, key, opt = {}){
   $('title').textContent = name;
   if (!opt.keep){
     lon = 0; lat = 0; vLon = vLat = 0;
-    hzLoad(key);
+    hzLoad(key); notesLoad(key);
     if (Math.abs(aspect - 2) > 0.05) toast(`รูปไม่ใช่สัดส่วน 2:1 (${aspect.toFixed(2)}:1) — แสดงเป็นพาโนรามาบางส่วน`);
   }
   return { w, h, tw: src.width, th: src.height, ms: Math.round(performance.now() - t0) };
@@ -647,7 +692,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!menu.hidden) me
 
 const UI_IDLE_MS = 4000;
 let uiT = 0, uiHidden = false, tap = null;
-const uiBusy = () => dragging || !hzPanel.hidden || sheet.classList.contains('on') || !menu.hidden || modesBar.classList.contains('open');
+const uiBusy = () => dragging || !hzPanel.hidden || !adjPanel.hidden || noting || sheet.classList.contains('on') || !menu.hidden || modesBar.classList.contains('open');
 function uiShow(){ if (document.body.classList.contains('present')) return; if (uiHidden){ document.body.classList.remove('idle'); uiHidden = false; } clearTimeout(uiT); uiT = setTimeout(uiIdle, UI_IDLE_MS); }
 function uiHide(){ clearTimeout(uiT); document.body.classList.add('idle'); uiHidden = true; }
 function uiIdle(){ if (uiBusy()) uiT = setTimeout(uiIdle, 1000); else uiHide(); }
@@ -661,6 +706,134 @@ stage.addEventListener('pointercancel', () => { tap = null; });
 document.addEventListener('pointerdown', uiShow);                                     // ทำงานหลัง handler ของ stage (bubble) จึงเก็บสถานะเดิมไว้ใน tap ได้
 ['keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, uiShow, { passive: true }));
 uiShow();
+
+// ---------- เส้นกริด / ปรับภาพ / โน้ตบนภาพ ----------
+let gridOn = load('sv360.grid') === '1';
+function applyGrid(){ document.body.classList.toggle('grid-on', gridOn); $('gridBtn').setAttribute('aria-pressed', String(gridOn)); }
+applyGrid();
+$('gridBtn').addEventListener('click', () => { gridOn = !gridOn; applyGrid(); store('sv360.grid', gridOn ? '1' : null); toast(gridOn ? 'เส้นกริด: เปิด (เส้นเหลือง = กลางจอ)' : 'เส้นกริด: ปิด'); });
+
+const adjPanel = $('adjPanel');
+const adjIsDef = () => U.bright.value === 0 && U.contrast.value === 1 && U.gam.value === 1;
+function adjApply(){
+  const b = +$('adjB').value, c = +$('adjC').value, g = +$('adjG').value;
+  U.bright.value = b / 100; U.contrast.value = c / 100; U.gam.value = 1 / (1 + g / 100 * 1.2);
+  $('adjBV').textContent = b; $('adjCV').textContent = c + '%'; $('adjGV').textContent = g;
+  $('adjBtn').setAttribute('aria-pressed', String(!adjIsDef()));
+}
+const adjClose = () => { adjPanel.hidden = true; };
+$('adjBtn').addEventListener('click', () => { adjPanel.hidden = !adjPanel.hidden; if (!adjPanel.hidden && !hzPanel.hidden){ hzClose(); hzSave(); } });
+$('adjDone').addEventListener('click', adjClose);
+$('adjReset').addEventListener('click', () => { $('adjB').value = 0; $('adjC').value = 100; $('adjG').value = 0; adjApply(); });
+['adjB', 'adjC', 'adjG'].forEach(id => $(id).addEventListener('input', adjApply));
+addEventListener('keydown', e => { if (e.key === 'Escape' && !adjPanel.hidden) adjClose(); });
+
+// โน้ต: เก็บเป็นทิศในกรอบพิกัดของรูป (ไม่ขึ้นกับมุมมอง/โหมด/ค่าปรับแนวระดับ) ต่อรูป ในเครื่องนี้
+const pinsEl = $('pins'), noteBtn = $('noteBtn');
+let notes = [], noteKey = null, noting = false;
+const _pa = new THREE.Vector3(), _pm = new THREE.Matrix3(), _pm2 = new THREE.Matrix3();
+function notesLoad(key){
+  noteKey = key || null; notes = [];
+  if (noteKey){ try { const a = JSON.parse(load('sv360.notes.' + noteKey)); if (Array.isArray(a)) notes = a.filter(n => n && Number.isFinite(n.x + n.y + n.z) && typeof n.t === 'string'); } catch {} }
+  notesRender();
+}
+function notesSave(){ if (noteKey) store('sv360.notes.' + noteKey, notes.length ? JSON.stringify(notes) : null); }
+function notesRender(){
+  pinsEl.textContent = '';
+  notes.forEach((n, i) => {
+    const b = document.createElement('button'); b.className = 'pin'; b.hidden = true;
+    b.innerHTML = '<i></i><span></span>'; b.lastChild.textContent = n.t;
+    b.addEventListener('click', e => { e.stopPropagation(); noteEdit(i); });
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    pinsEl.appendChild(b); n.el = b;
+  });
+}
+function noteEdit(i){
+  const n = notes[i]; if (!n) return;
+  const t = prompt('แก้ไขโน้ต (ลบข้อความทั้งหมด = ลบโน้ตนี้)', n.t);
+  if (t === null) return;
+  if (!t.trim()) notes.splice(i, 1); else n.t = t.trim().slice(0, 120);
+  notesSave(); notesRender();
+}
+// หน้าจอ (NDC) → ทิศในกรอบรูป (ย้อนสูตรเดียวกับ fragment shader)
+function unprojectNdc(nx, ny, out){
+  const m = U.mode.value, asp = U.aspect.value;
+  if (m === 1){
+    const px = nx * asp / Math.min(asp, 1), py = ny / Math.min(asp, 1), len = Math.hypot(px, py), r = len * U.ks.value, a = 2 * Math.atan(r * 0.5);
+    const qx = len > 0 ? px / len : 0, qy = len > 0 ? py / len : 0;
+    out.set(qx * Math.sin(a), qy * Math.sin(a), -Math.cos(a)).applyMatrix3(U.rot.value);
+  } else if (m === 2){
+    const px = nx * asp, py = ny;
+    out.set(0, 0, 0).addScaledVector(U.rgt.value, px * U.t.value).addScaledVector(_pa.set(0, 1, 0), py * U.t.value + U.shift.value).add(U.fwd.value);
+  } else out.set(nx * asp * U.t.value, ny * U.t.value, -1).applyMatrix3(U.rot.value);
+  return out.applyMatrix3(U.corr.value).normalize();
+}
+// ทิศในกรอบรูป → หน้าจอ (NDC); คืน false ถ้าอยู่นอกมุมมอง
+function projectDir(x, y, z, o){
+  const m = U.mode.value, asp = U.aspect.value;
+  _pa.set(x, y, z).applyMatrix3(_pm.copy(U.corr.value).transpose());
+  if (m === 2){
+    const f = _pa.dot(U.fwd.value); if (f <= 1e-3) return false;
+    o.x = (_pa.dot(U.rgt.value) / f / U.t.value) / asp; o.y = (_pa.y / f - U.shift.value) / U.t.value; return true;
+  }
+  _pa.applyMatrix3(_pm2.copy(U.rot.value).transpose());
+  if (m === 1){
+    const ang = Math.acos(THREE.MathUtils.clamp(-_pa.z, -1, 1)); if (ang > 3.0) return false;
+    const s = Math.hypot(_pa.x, _pa.y), pr = s > 0 ? 2 * Math.tan(ang / 2) / U.ks.value / s : 0, mn = Math.min(asp, 1);
+    o.x = _pa.x * pr * mn / asp; o.y = _pa.y * pr * mn; return true;
+  }
+  if (-_pa.z <= 1e-3) return false;
+  o.x = (_pa.x / -_pa.z / U.t.value) / asp; o.y = (_pa.y / -_pa.z / U.t.value); return true;
+}
+const _po = { x: 0, y: 0 }, _pd = new THREE.Vector3();
+function notesLayout(){
+  if (!notes.length) return;
+  const w = innerWidth, h = innerHeight;
+  for (const n of notes){
+    const ok = projectDir(n.x, n.y, n.z, _po) && Math.abs(_po.x) < 1.1 && Math.abs(_po.y) < 1.1;
+    n.el.hidden = !ok; if (ok) n.el.classList.toggle('flip', _po.x > 0.25);
+    if (ok) n.el.style.transform = `translate(${((_po.x + 1) / 2 * w).toFixed(1)}px,${((1 - _po.y) / 2 * h).toFixed(1)}px)` + (_po.x > 0.25 ? ' translateX(calc(-100% + 9px))' : '');
+  }
+}
+function noteMode(on){ noting = on; document.body.classList.toggle('noting', on); noteBtn.setAttribute('aria-pressed', String(on)); }
+noteBtn.addEventListener('click', () => {
+  if (!U.tex.value){ toast('ยังไม่มีรูป'); return; }
+  if (!noteKey){ toast('รูปนี้ยังบันทึกโน้ตไม่ได้'); return; }
+  noteMode(true); toast('แตะจุดบนภาพที่ต้องการใส่โน้ต');
+});
+let nDown = null;
+stage.addEventListener('pointerdown', e => { nDown = noting && pointers.size <= 1 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; });
+stage.addEventListener('pointerup', e => {
+  if (!noting || !nDown) return;
+  const d = nDown; nDown = null;
+  if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10 || performance.now() - d.t > 500) return;
+  noteMode(false);
+  const t = prompt('โน้ต (เช่น เหล็กเสริมไม่ครบ)', '');
+  if (!t || !t.trim()) return;
+  unprojectNdc(e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2, _pd);
+  notes.push({ x: +_pd.x.toFixed(5), y: +_pd.y.toFixed(5), z: +_pd.z.toFixed(5), t: t.trim().slice(0, 120) });
+  notesSave(); notesRender(); notesLayout();
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && noting) noteMode(false); });
+function snapOverlay(g, W, H, k){                      // กริด + โน้ต ลงในภาพที่บันทึก
+  if (gridOn){
+    const step = Math.min(W, H) / 6; g.lineWidth = Math.max(1, k); g.strokeStyle = 'rgba(255,255,255,.38)'; g.beginPath();
+    for (let x = W / 2 % step; x < W; x += step){ g.moveTo(x, 0); g.lineTo(x, H); }
+    for (let y = H / 2 % step; y < H; y += step){ g.moveTo(0, y); g.lineTo(W, y); }
+    g.stroke(); g.strokeStyle = 'rgba(242,183,5,.9)'; g.lineWidth = Math.max(2, 2 * k); g.beginPath();
+    g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
+  }
+  g.font = `500 ${13 * k}px "IBM Plex Sans Thai", sans-serif`; g.textBaseline = 'middle';
+  for (const n of notes){
+    if (!projectDir(n.x, n.y, n.z, _po) || Math.abs(_po.x) > 1.05 || Math.abs(_po.y) > 1.05) continue;
+    const x = (_po.x + 1) / 2 * W, y = (1 - _po.y) / 2 * H, r = 9 * k;
+    const txt = fitText(g, n.t, 0.42 * W), tw = g.measureText(txt).width;
+    g.fillStyle = 'rgba(20,22,26,.78)'; g.beginPath(); g.roundRect ? g.roundRect(x + r + 6 * k, y - 11 * k, tw + 16 * k, 22 * k, 8 * k) : g.rect(x + r + 6 * k, y - 11 * k, tw + 16 * k, 22 * k); g.fill();
+    g.fillStyle = '#fff'; g.fillText(txt, x + r + 14 * k, y);
+    g.beginPath(); g.arc(x, y, r, 0, 7); g.fillStyle = '#f2b705'; g.fill(); g.lineWidth = 2 * k; g.strokeStyle = '#fff'; g.stroke();
+  }
+  g.textBaseline = 'alphabetic';
+}
 
 // ---------- ธีม / หมุนอัตโนมัติ / โหมดนำเสนอ ----------
 const THEMES = ['dark', 'light', 'auto'], THEME_TH = { dark: 'มืด', light: 'สว่าง', auto: 'ตามระบบ' };
@@ -687,6 +860,7 @@ function showExit(){ $('exitP').hidden = false; clearTimeout(exitT); exitT = set
 function presentOn(){
   presenting = true; menuSet(false); modesBar.classList.remove('open'); sheet.classList.remove('on');
   if (!hzPanel.hidden){ hzClose(); hzSave(); }
+  adjClose(); noteMode(false);
   document.body.classList.add('present'); uiHide(); showExit();
   const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
   if (req && !document.fullscreenElement && !document.webkitFullscreenElement){
@@ -734,8 +908,8 @@ function loop(now){
   if (hz > 1e-4){ U.fwd.value.set(dir.x / hz, 0, dir.z / hz); U.rgt.value.set(-dir.z / hz, 0, dir.x / hz); }
   const lim = THREE.MathUtils.degToRad(55);
   U.shift.value = Math.tan(THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)), -lim, lim));
-  drawCompass();
-  moreBtn.classList.toggle('has', gyroOn || autoRot || hzBtn.classList.contains('has'));
+  drawCompass(); notesLayout();
+  moreBtn.classList.toggle('has', gyroOn || autoRot || gridOn || !adjIsDef() || notes.length > 0 || hzBtn.classList.contains('has'));
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
@@ -825,6 +999,7 @@ function snapshot(){
   const gl = renderer.domElement, W = gl.width, H = gl.height, k = W / innerWidth;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'); g.drawImage(gl, 0, 0);
+  snapOverlay(g, W, H, k);
   const name = current ? current.name : ($('title').textContent || '');
   const when = new Date(), dateTxt = when.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
   const view = ['ปกติ', 'กว้างพิเศษ', 'ตรง', 'กว้าง'][mode] + (mode === 0 ? ` ×${zoomX().toFixed(1)} (FOV ${Math.round(fov)}°)` : '');
