@@ -383,7 +383,30 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, 1, 1, 1100);   // used for orientation only
 // ค่าเริ่มต้น = ใช้ขนาดสูงสุดที่ GPU รองรับ (ไม่ย่อรูปถ้าไม่เกิน) — เติม ?safe=1 ท้ายลิงก์เพื่อจำกัด 8192 กันแรมมือถือเต็ม
 const SAFE = /[?&]safe=1\b/.test(location.search), DEBUG = /[?&]debug=1\b/.test(location.search);
-const maxTex = SAFE ? Math.min(renderer.capabilities.maxTextureSize, 8192) : renderer.capabilities.maxTextureSize;
+const gpuMax = renderer.capabilities.maxTextureSize;
+const TEX_BLANK = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });   // ตัวแทนภาพหลังอัปโหลด (กัน three error ถ้า GPU รีเซ็ตแล้วต้องอัปโหลดซ้ำ)
+// กันแอปหลุดเพราะหน่วยความจำเต็ม (เช่น iPad ตอนอัปโหลดภาพ 15520×7760 เข้า GPU): ก่อนโหลดภาพใหญ่จะจดธงไว้ ถ้าเปิดแอปใหม่แล้วธงยังค้าง = รอบก่อนหลุดตอนโหลด
+// → ลดขนาดสูงสุดของภาพลงเป็นขั้น (12288 → 8192 → 6144 → 4096) และจำไว้ในเครื่อง · ?full=1 = ล้างค่า กลับไปใช้ขนาดเต็ม
+const CAP_STAGES = [12288, 8192, 6144, 4096];
+let crashNote = '';
+try {
+  if (/[?&]full=1\b/.test(location.search)){ store('sv360.cap', null); store('sv360.busy', null); }
+  const b = JSON.parse(load('sv360.busy') || 'null');
+  if (b && b.w){
+    store('sv360.busy', null);
+    const cur = +load('sv360.cap') || Infinity, next = Math.min(cur, CAP_STAGES.find(c => c < b.w) || 4096);
+    store('sv360.cap', String(next));
+    crashNote = `รอบก่อนแอปหลุดตอนโหลดภาพใหญ่ (หน่วยความจำเต็ม) จึงลดขนาดภาพสูงสุดเหลือกว้าง ${next}px อัตโนมัติ · เปิดลิงก์ต่อท้าย ?full=1 เพื่อกลับไปขนาดเต็ม`;
+  }
+} catch {}
+const capStored = +load('sv360.cap') || Infinity;
+const maxTex = Math.min(SAFE ? Math.min(gpuMax, 8192) : gpuMax, capStored);
+const memCapped = maxTex < gpuMax && !SAFE;
+let busyTok = 0;
+function busyStart(w){ if (!(w >= 6000)) return; store('sv360.busy', JSON.stringify({ w, t: Date.now() })); busyTok++; }
+function busyEndSoon(ms = 4000){ const t = busyTok; setTimeout(() => { if (t === busyTok) store('sv360.busy', null); }, ms); }
+function busyEnd(){ busyTok++; store('sv360.busy', null); }
+addEventListener('pagehide', busyEnd);
 const U = {
   tex: { value: null }, mode: { value: 0 }, rot: { value: new THREE.Matrix3() },
   t: { value: 1 }, ks: { value: 1 }, aspect: { value: 1 }, shift: { value: 0 },
@@ -434,6 +457,10 @@ function resize(){
   U.aspect.value = w / h;
 }
 addEventListener('resize', resize); resize();
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); });
+renderer.domElement.addEventListener('webglcontextrestored', () => {   // GPU ตัดเพราะแรมเต็ม: texture หาย → โหลดรูปปัจจุบันใหม่
+  if (current){ current.img = null; select(current, current.btn); toast('GPU รีเซ็ต — กำลังโหลดภาพใหม่'); }
+});
 
 // ---------- view state ----------
 let lon = 0, lat = 0, vLon = 0, vLat = 0;
@@ -453,7 +480,9 @@ function setPano(img, name, key, opt = {}){
     src = c;
   }
   texW = src.width;
+  busyStart(src.width);
   const tex = new THREE.Texture(src);
+  tex.onUpdate = () => { tex.image = TEX_BLANK; };   // อัปโหลดเข้า GPU แล้ว ปล่อยสำเนาบน CPU (ไม่งั้นภาพ decode ค้างในแรมอีกชุด)
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   tex.needsUpdate = true;
@@ -462,7 +491,7 @@ function setPano(img, name, key, opt = {}){
   const aspect = w / h;
   vDeg = Math.min(180, 360 / aspect);
   if (U.tex.value) U.tex.value.dispose();
-  U.tex.value = tex;
+  U.tex.value = tex; busyEndSoon();
   U.th0.value = THREE.MathUtils.degToRad((180 - vDeg) / 2);
   U.thLen.value = THREE.MathUtils.degToRad(vDeg);
   $('title').textContent = name;
@@ -951,6 +980,7 @@ function loop(now){
 // ---------- files / gallery ----------
 const items = [];
 let current = null;                       // item ที่กำลังแสดง
+if (crashNote) setTimeout(() => toast(crashNote), 1500);
 let shown = null;                         // รูป (img/canvas) ที่ส่งเข้า setPano ล่าสุด — ใช้เช็คว่ากำลังโชว์ภาพตัวอย่างอยู่ไหม
 
 // ป้ายสถานะมุมซ้ายล่าง: ตัวอย่าง → ภาพเต็ม / ความละเอียดจริง / ถูกย่อหรือไม่
@@ -964,7 +994,7 @@ function setChip(msg, o = {}){
 function chipFull(info, extra){
   const dim = `${info.w}×${info.h}`;
   if (info.tw < info.w){
-    setChip(`ภาพถูกย่อเหลือ ${info.tw}×${info.th} ตามข้อจำกัดของ GPU (ต้นฉบับ ${dim})`, { warn: true });
+    setChip(`ภาพถูกย่อเหลือ ${info.tw}×${info.th} ${memCapped ? 'เพื่อกันแอปหลุดจากหน่วยความจำเต็ม (?full=1 = ขนาดเต็ม)' : 'ตามข้อจำกัดของ GPU'} (ต้นฉบับ ${dim})`, { warn: true });
   } else setChip(`ภาพเต็ม ${dim}` + (DEBUG && extra ? ' · ' + extra : ''), { ms: DEBUG ? 0 : 5000 });
 }
 
@@ -1316,16 +1346,18 @@ async function loadDriveItem(it){
       if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดภาพเต็ม${total ? ' ' + Math.round(got / total * 100) + '%' : ''}${orig}`);
     });
     const t2 = performance.now();
+    busyStart(Math.min(md.width || 0, maxTex));                    // จดธงก่อน decode ภาพใหญ่ (decode + อัปโหลดคือช่วงที่แรมพุ่ง)
     const img = await decodeFile(file);
     const t3 = performance.now();
     if (!stillCurrent()){ await put; return; }                    // ผู้ใช้ไปดูรูปอื่นแล้ว: เก็บไฟล์ลงแคชไว้ให้เปิดครั้งหน้าเร็ว
     const keep = isPreview();                                     // สลับตัวอย่าง→ภาพเต็มโดยไม่เสียมุมที่กำลังดู
     it.img = img;
     it.info = setPano(img, it.name, it.key, { keep });
+    if (img.width * img.height > 30e6){ it.img = null; if (shown === img) shown = null; }   // ภาพใหญ่ไม่เก็บไว้ในแรม (เปิดซ้ำอ่านจากแคช)
     chipFull(it.info, `${cached ? 'จากแคช' : 'โหลด'} ${((t2 - t1) / 1000).toFixed(1)}s · decode ${Math.round(t3 - t2)}ms · texture ${it.info.ms}ms · รวม ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   } catch (e){
     if (stillCurrent()) setChip(isPreview() ? 'โหลดภาพเต็มไม่สำเร็จ — ตอนนี้เห็นแค่ภาพตัวอย่างความละเอียดต่ำ' : '', { warn: true });
-    toast(`โหลด ${f.name} ไม่ได้ (${e.message})`);
+    busyEnd(); toast(`โหลด ${f.name} ไม่ได้ (${e.message})`);
   } finally { it.loading = false; }
 }
 function openDriveImage(f, sib){
