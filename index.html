@@ -83,8 +83,7 @@ body.grid-on .grid{display:block}
   padding:0;border:0;background:none;color:#fff;font:inherit;font-size:13px;will-change:transform}
 .pin i{flex:none;box-sizing:border-box;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6)}
 .pin span{margin-top:-11px;max-width:42vw;padding:3px 8px;border-radius:8px;background:rgba(20,22,26,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pin.flip{flex-direction:row-reverse;margin-left:0}
-.pin.flip i{margin:-9px -9px 0 0}
+.pin.flip span{order:-1}
 body.noting #stage{cursor:crosshair}
 .hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:14px 18px;border-radius:14px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -793,7 +792,7 @@ function notesLayout(){
   for (const n of notes){
     const ok = projectDir(n.x, n.y, n.z, _po) && Math.abs(_po.x) < 1.1 && Math.abs(_po.y) < 1.1;
     n.el.hidden = !ok; if (ok) n.el.classList.toggle('flip', _po.x > 0.25);
-    if (ok) n.el.style.transform = `translate(${((_po.x + 1) / 2 * w).toFixed(1)}px,${((1 - _po.y) / 2 * h).toFixed(1)}px)`;
+    if (ok) n.el.style.transform = `translate(${((_po.x + 1) / 2 * w).toFixed(1)}px,${((1 - _po.y) / 2 * h).toFixed(1)}px)` + (_po.x > 0.25 ? ' translateX(calc(-100% + 9px))' : '');
   }
 }
 function noteMode(on){ noting = on; document.body.classList.toggle('noting', on); noteBtn.setAttribute('aria-pressed', String(on)); }
