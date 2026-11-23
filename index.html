@@ -51,14 +51,18 @@ canvas{display:block;width:100%;height:100%}
 @media (max-width:340px){ .co{display:none} }   /* จอแคบมาก: ชื่อบริษัทอยู่ในโลโก้อยู่แล้ว */
 
 /* Facebook-style FOV compass */
-.compass{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);
-  width:56px;height:56px;border-radius:50%;border:none;padding:0;background:transparent;cursor:pointer}
+:root{--sb:0px}                 /* ความสูงแถบรูป (0 เมื่อซ่อน) */
+body.strip-on{--sb:80px}
+.compass{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px + var(--sb));
+  width:42px;height:42px;border-radius:50%;border:none;padding:0;background:transparent;cursor:pointer}
 .compass svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
 
-.strip{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;
+.strip{position:fixed;left:0;right:0;bottom:0;display:none;gap:8px;overflow-x:auto;
   padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 12px);
   background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.55))}
 .strip:empty{display:none}
+body.strip-on .strip{display:flex}
+body.strip-on .strip:empty{display:none}
 .thumb{flex:0 0 auto;width:96px;height:48px;border-radius:6px;border:2px solid transparent;padding:0;
   background:#333 center/cover no-repeat;cursor:pointer}
 .thumb[aria-current="true"]{border-color:var(--accent)}
@@ -77,7 +81,7 @@ canvas{display:block;width:100%;height:100%}
   font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.on{opacity:1}
 /* image status chip (ตัวอย่าง → ภาพเต็ม / ความละเอียด) */
-.chip{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 148px);max-width:min(72vw,380px);
+.chip{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 68px + var(--sb));max-width:min(72vw,380px);
   padding:5px 10px;border-radius:12px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   border:1px solid var(--glass-line);font-size:11px;line-height:1.45;pointer-events:none}
 .chip.warn{border-color:var(--accent)}
@@ -108,29 +112,27 @@ canvas{display:block;width:100%;height:100%}
 .linkform input{height:42px;border-radius:10px;border:1px solid var(--glass-line);background:rgba(255,255,255,.06);color:var(--ink);font:inherit;font-size:16px;padding:0 12px}
 .linkform .btn{align-self:flex-start;background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
 /* view mode switch */
-.modes{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 104px);display:flex;padding:3px;gap:2px;
+.modes{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px + var(--sb));display:flex;padding:3px;gap:2px;
   border-radius:22px;border:1px solid var(--glass-line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .modes button{appearance:none;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;height:34px;padding:0 12px;border-radius:18px;cursor:pointer}
 .modes button[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;font-weight:600}
 .modes button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:340px){ .modes button{padding:0 8px;font-size:12px} }
-.zoomctl{position:fixed;right:21px;bottom:calc(env(safe-area-inset-bottom,0px) + 214px);width:46px;display:flex;flex-direction:column;
-  border-radius:20px;border:1px solid var(--glass-line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);overflow:hidden}
+.zoomctl{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px + var(--sb));display:flex;
+  border-radius:14px;border:1px solid var(--glass-line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .zoomctl[hidden]{display:none}
-.zoomctl button{appearance:none;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.zoomctl .zpm{height:38px;font-size:22px;line-height:1}
-.zoomctl .zrd{height:44px;gap:1px;border-block:1px solid var(--glass-line);font-variant-numeric:tabular-nums}
+.zoomctl .zrd{appearance:none;border:0;background:none;color:var(--ink);font:inherit;font-variant-numeric:tabular-nums;min-height:30px;padding:3px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.zoomctl .zrd small{font-size:10px;color:var(--accent);white-space:nowrap;line-height:1.2}
+.zoomctl .zrd small[hidden]{display:none}
 .zoomctl .zrd b{font-size:13px}
-.zoomctl .zrd small{font-size:10px;color:var(--muted);white-space:nowrap}
-.zoomctl button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.zoomctl .zrd:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:14px}
 .zoomctl.deep .zrd b{color:var(--accent)}
-.zoomnote{position:fixed;right:76px;bottom:calc(env(safe-area-inset-bottom,0px) + 232px);padding:5px 9px;border-radius:12px;font-size:12px;
-  border:1px solid var(--accent);background:var(--glass);color:var(--ink);pointer-events:none;text-align:right;max-width:55vw}
-.zoomnote[hidden]{display:none}
-.nav{position:fixed;top:30%;transform:translateY(-50%);width:40px;height:56px;padding:0;justify-content:center;border-radius:14px}
+.nav{position:fixed;top:30%;transform:translateY(-50%);width:36px;min-width:36px;height:72px;padding:0;justify-content:center;border:0;background:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;opacity:.75;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+.nav svg{width:26px;height:26px}
 .nav[hidden]{display:none}
-.nav:disabled{opacity:.3;cursor:default}
-.nav.prev{left:8px}.nav.next{right:8px}
+.nav:disabled{opacity:.2;cursor:default}
+.nav.prev{left:2px}.nav.next{right:2px}
 /* horizon adjust (ปรับแนวระดับ) */
 .hz.has::after,#moreBtn.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
 #moreBtn{position:relative}
@@ -139,12 +141,19 @@ canvas{display:block;width:100%;height:100%}
 .menu[hidden]{display:none}
 .menu .btn{position:relative;width:100%;justify-content:flex-start;padding:0 12px;border-radius:12px;background:none;border-color:transparent}
 .menu .btn .lbl{display:inline}
+.menu{max-height:calc(100vh - 90px);overflow-y:auto}
+.mzoom{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;height:44px;font-size:14px;font-variant-numeric:tabular-nums}
+.mzoom[hidden]{display:none}
+.mzoom button{appearance:none;border:1px solid var(--glass-line);background:none;color:var(--ink);width:46px;height:36px;border-radius:12px;font:inherit;font-size:22px;line-height:1;cursor:pointer}
+/* แถบโหมด: ย่อเหลือปุ่มเดียว แตะเพื่อกางตัวเลือก */
+.modes:not(.open) button:not([aria-pressed="true"]){display:none}
+.modes:not(.open) button[aria-pressed="true"]::after{content:"▾";margin-left:6px;font-size:11px}
 .menu .btn[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
 /* ซ่อน UI อัตโนมัติเมื่อไม่ได้แตะ */
-.bar,.modes,.zoomctl,.zoomnote,.compass,.nav,.strip,.chip{transition:opacity .35s}
-body.idle .bar,body.idle .modes,body.idle .zoomctl,body.idle .zoomnote,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
+.bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:opacity .35s}
+body.idle .bar,body.idle .modes,body.idle .zoomctl,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
 body.idle .bar>*{pointer-events:none}
-@media (prefers-reduced-motion: reduce){.bar,.modes,.zoomctl,.zoomnote,.compass,.nav,.strip,.chip{transition:none}}
+@media (prefers-reduced-motion: reduce){.bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:none}}
 .hzpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
   display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--glass-line);
   background:rgba(22,24,27,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
@@ -175,15 +184,6 @@ body.idle .bar>*{pointer-events:none}
     <div class="co">คริสตัล เอ็นจิเนียริ่ง คอร์ปอเรชั่น</div>
     <div class="title" id="title">ภาพตัวอย่าง</div>
   </div>
-  <label class="btn" title="เปิดรูป 360">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
-    <span class="lbl">เปิดรูป</span>
-    <input id="file" type="file" accept="image/*" multiple hidden>
-  </label>
-  <button class="btn" id="driveBtn" title="รูปจากโฟลเดอร์ Google Drive">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
-    <span class="lbl">Google Drive</span>
-  </button>
   <button class="btn" id="moreBtn" aria-expanded="false" aria-controls="menu" title="เครื่องมือ" aria-label="เครื่องมือ">
     <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
   </button>
@@ -199,6 +199,20 @@ body.idle .bar>*{pointer-events:none}
 </button>
 
 <div class="menu" id="menu" hidden role="menu" aria-label="เครื่องมือ">
+<div class="mzoom" id="mzoom"><button id="zOut" aria-label="ซูมออก" title="ซูมออก">−</button><span id="zFov">FOV 75°</span><button id="zIn" aria-label="ซูมเข้า" title="ซูมเข้า">+</button></div>
+  <label class="btn" title="เปิดรูป 360">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
+    <span class="lbl">เปิดรูป</span>
+    <input id="file" type="file" accept="image/*" multiple hidden>
+  </label>
+  <button class="btn" id="driveBtn" title="รูปจากโฟลเดอร์ Google Drive">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
+    <span class="lbl">Google Drive</span>
+  </button>
+<button class="btn" id="stripBtn" aria-pressed="false" title="แสดง/ซ่อนแถบรูป">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="5" height="6" rx="1"/><rect x="9.5" y="14" width="5" height="6" rx="1"/><rect x="16" y="14" width="5" height="6" rx="1"/><path d="M3 9h18"/></svg>
+  <span class="lbl">แถบรูป</span>
+</button>
   <button class="btn" id="gyroBtn" aria-pressed="false" title="หมุนตามมือถือ">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
     <span class="lbl">หมุนตามเครื่อง</span>
@@ -222,12 +236,7 @@ body.idle .bar>*{pointer-events:none}
   <button data-mode="1" aria-pressed="false" title="กว้างพิเศษ (stereographic)">กว้างพิเศษ</button>
   <button data-mode="2" aria-pressed="false" title="แนวดิ่งตรง ไม่เบี้ยวเวลาก้ม/เงย">ตรง</button>
 </div>
-<div class="zoomctl" id="zoomCtl" role="group" aria-label="ซูม">
-  <button class="zpm" id="zIn" aria-label="ซูมเข้า" title="ซูมเข้า">+</button>
-  <button class="zrd" id="zRead" aria-label="รีเซ็ตซูม" title="แตะเพื่อกลับซูม ×1.0"><b id="zX">×1.0</b><small id="zFov">FOV 75°</small></button>
-  <button class="zpm" id="zOut" aria-label="ซูมออก" title="ซูมออก">−</button>
-</div>
-<div class="zoomnote" id="zoomNote" hidden></div>
+<div class="zoomctl" id="zoomCtl"><button class="zrd" id="zRead" aria-label="รีเซ็ตซูม" title="แตะเพื่อกลับซูม ×1.0"><b id="zX">×1.0</b><small id="zNote" hidden></small></button></div>
 <button class="btn nav prev" id="prevBtn" hidden title="รูปก่อนหน้า" aria-label="รูปก่อนหน้า">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
 </button>
@@ -469,16 +478,16 @@ const zoomX = () => Z0 / Math.tan(THREE.MathUtils.degToRad(fov) / 2);
 const upscale = () => !texW ? 0 : (innerHeight * Math.min(devicePixelRatio, 2)) / (THREE.MathUtils.degToRad(fov) * texW / (2 * Math.PI));
 function syncZoomUI(){
   const on = mode === 0;
-  $('zoomCtl').hidden = !on;
+  $('zoomCtl').hidden = !on; $('mzoom').hidden = !on;
   const up = on ? upscale() : 0, soft = up > 1.05;
-  $('zoomNote').hidden = !soft;
+  $('zNote').hidden = !soft;
   if (!on){ zoomMode = false; setModeLabel(); return; }
   if (!zoomMode && fov < ZOOM_ENTER) zoomMode = true; else if (zoomMode && fov > ZOOM_EXIT) zoomMode = false;
   setModeLabel();
   $('zX').textContent = '×' + zoomX().toFixed(zoomX() < 10 ? 1 : 0);
   $('zFov').textContent = 'FOV ' + Math.round(fov) + '°';
   $('zoomCtl').classList.toggle('deep', zoomMode);
-  if (soft) $('zoomNote').textContent = 'ขยายเกินพิกเซลจริง ' + up.toFixed(1) + '×';
+  if (soft) $('zNote').textContent = 'ขยาย ' + up.toFixed(1) + '×';
 }
 const modeBtn0 = document.querySelector('.modes button[data-mode="0"]');
 function setModeLabel(){
@@ -597,13 +606,28 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && !hzPanel.hidden){ h
 const menu = $('menu'), moreBtn = $('moreBtn');
 const menuSet = open => { menu.hidden = !open; moreBtn.setAttribute('aria-expanded', String(open)); };
 moreBtn.addEventListener('click', () => menuSet(menu.hidden));
-menu.addEventListener('click', e => { if (e.target.closest('.btn')) setTimeout(() => menuSet(false), 0); });
-document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && !moreBtn.contains(e.target)) menuSet(false); });
-addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) menuSet(false); });
+menu.addEventListener('click', e => { if (e.target.closest('.btn') && !e.target.closest('label')) setTimeout(() => menuSet(false), 0); });
+$('file').addEventListener('change', () => menuSet(false));      // เลือกไฟล์เสร็จแล้วค่อยปิดเมนู (ปิดก่อนอาจทำให้ iOS ไม่ส่งไฟล์)
+// แถบรูป: ซ่อนเป็นค่าเริ่มต้น เปิดได้จากเมนู (จำค่าไว้ในเครื่อง)
+const stripBtn = $('stripBtn');
+function setStrip(on){ document.body.classList.toggle('strip-on', on); stripBtn.setAttribute('aria-pressed', String(on)); try { localStorage.setItem('sv360.strip', on ? '1' : '0'); } catch {} }
+stripBtn.addEventListener('click', () => setStrip(!document.body.classList.contains('strip-on')));
+setStrip(load('sv360.strip') === '1');
+// แถบโหมดแบบย่อ: แตะปุ่มที่แสดงอยู่ = กางตัวเลือก; เลือกแล้วหุบกลับ
+const modesBar = document.querySelector('.modes');
+modesBar.addEventListener('click', e => {
+  if (!modesBar.classList.contains('open')){ e.stopPropagation(); modesBar.classList.add('open'); }
+  else setTimeout(() => modesBar.classList.remove('open'), 0);
+}, true);
+document.addEventListener('pointerdown', e => {
+  if (!menu.hidden && !menu.contains(e.target) && !moreBtn.contains(e.target)) menuSet(false);
+  if (!modesBar.contains(e.target)) modesBar.classList.remove('open');
+});
+addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!menu.hidden) menuSet(false); modesBar.classList.remove('open'); } });
 
 const UI_IDLE_MS = 4000;
 let uiT = 0, uiHidden = false, tap = null;
-const uiBusy = () => dragging || !hzPanel.hidden || sheet.classList.contains('on') || !menu.hidden;
+const uiBusy = () => dragging || !hzPanel.hidden || sheet.classList.contains('on') || !menu.hidden || modesBar.classList.contains('open');
 function uiShow(){ if (uiHidden){ document.body.classList.remove('idle'); uiHidden = false; } clearTimeout(uiT); uiT = setTimeout(uiIdle, UI_IDLE_MS); }
 function uiHide(){ clearTimeout(uiT); document.body.classList.add('idle'); uiHidden = true; }
 function uiIdle(){ if (uiBusy()) uiT = setTimeout(uiIdle, 1000); else uiHide(); }
