@@ -11,13 +11,17 @@
 :root{
   --bg:#1a1c1e; --ink:#f3f4f5; --muted:#b9bec4;
   --glass:rgba(24,26,29,.55); --glass-line:rgba(255,255,255,.18);
+  --panel:rgba(22,24,27,.9); --sheet:rgba(22,24,27,.94); --soft:rgba(255,255,255,.05);
   --accent:#f2b705; --fov:rgba(255,255,255,.85);
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#1a1c1e; } }
-:root[data-theme="dark"]{ --bg:#1a1c1e; }
+/* ธีม: ค่าเริ่มต้น = มืด (หน้าตาเดิม) · สว่าง/ตามระบบ เลือกจากเมนู ⋯ */
+:root[data-theme="light"]{ --bg:#eef0f2; --ink:#1a1c1e; --muted:#59616a; --glass:rgba(255,255,255,.74); --glass-line:rgba(0,0,0,.14);
+  --panel:rgba(250,251,252,.95); --sheet:rgba(246,247,249,.98); --soft:rgba(0,0,0,.04); color-scheme:light }
+@media (prefers-color-scheme: light){ :root[data-theme="auto"]{ --bg:#eef0f2; --ink:#1a1c1e; --muted:#59616a; --glass:rgba(255,255,255,.74); --glass-line:rgba(0,0,0,.14);
+  --panel:rgba(250,251,252,.95); --sheet:rgba(246,247,249,.98); --soft:rgba(0,0,0,.04); color-scheme:light } }
 *,*::before,*::after{box-sizing:inherit}
 [hidden]{display:none!important}
 html,body{height:100%;margin:0}
@@ -33,7 +37,7 @@ canvas{display:block;width:100%;height:100%}
 .logo{flex:0 0 auto;width:42px;height:42px;padding:3px;border-radius:10px;background:#fff;object-fit:contain;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .brand{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .co{font-size:11px;line-height:1.25;color:#fff;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.7)}
-.title{min-width:0;font-weight:600;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.title{color:#fff;min-width:0;font-weight:600;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .btn{appearance:none;border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
   height:40px;min-width:40px;padding:0 12px;border-radius:20px;font:inherit;font-size:14px;
   display:inline-flex;align-items:center;gap:6px;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -87,7 +91,7 @@ body.strip-on .strip:empty{display:none}
 .chip.warn{border-color:var(--accent)}
 /* Drive folder browser */
 .sheet{position:fixed;left:0;right:0;bottom:0;height:85%;display:none;flex-direction:column;
-  background:rgba(22,24,27,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background:var(--sheet);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border-top:1px solid var(--glass-line);border-radius:16px 16px 0 0;padding-bottom:env(safe-area-inset-bottom,0px)}
 .sheet.on{display:flex}
 .sheet-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--glass-line)}
@@ -97,7 +101,7 @@ body.strip-on .strip:empty{display:none}
 .crumbs span{color:var(--muted)}
 .sheet .btn{height:36px;min-width:36px;padding:0 10px}
 .sheet-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));grid-auto-rows:max-content;align-content:start;gap:14px}
-.item{appearance:none;border:1px solid var(--glass-line);background:rgba(255,255,255,.04);color:var(--ink);font:inherit;
+.item{appearance:none;border:1px solid var(--glass-line);background:var(--soft);color:var(--ink);font:inherit;
   border-radius:12px;padding:0;overflow:hidden;cursor:pointer;text-align:left;display:flex;flex-direction:column;flex-shrink:0}
 .item .pic{aspect-ratio:2/1;background:#2a2d31 center/cover no-repeat;position:relative}
 .item .pic b{position:absolute;right:8px;top:8px;font-size:12px;padding:3px 8px;border-radius:6px;background:var(--accent);color:#1a1c1e}
@@ -109,7 +113,7 @@ body.strip-on .strip:empty{display:none}
 .item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .empty{grid-column:1/-1;color:var(--muted);font-size:14px;padding:8px 2px;line-height:1.6}
 .linkform{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}
-.linkform input{height:42px;border-radius:10px;border:1px solid var(--glass-line);background:rgba(255,255,255,.06);color:var(--ink);font:inherit;font-size:16px;padding:0 12px}
+.linkform input{height:42px;border-radius:10px;border:1px solid var(--glass-line);background:var(--soft);color:var(--ink);font:inherit;font-size:16px;padding:0 12px}
 .linkform .btn{align-self:flex-start;background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
 /* view mode switch */
 .modes{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px + var(--sb));display:flex;padding:3px;gap:2px;
@@ -128,7 +132,7 @@ body.strip-on .strip:empty{display:none}
 .zoomctl .zrd:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:14px}
 .zoomctl.deep .zrd b{color:var(--accent)}
 .nav{position:fixed;top:30%;transform:translateY(-50%);width:36px;min-width:36px;height:72px;padding:0;justify-content:center;border:0;background:none;
-  backdrop-filter:none;-webkit-backdrop-filter:none;opacity:.75;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+  backdrop-filter:none;-webkit-backdrop-filter:none;opacity:.75;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
 .nav svg{width:26px;height:26px}
 .nav[hidden]{display:none}
 .nav:disabled{opacity:.2;cursor:default}
@@ -137,7 +141,7 @@ body.strip-on .strip:empty{display:none}
 .hz.has::after,#moreBtn.has::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
 #moreBtn{position:relative}
 .menu{position:fixed;z-index:5;right:12px;top:calc(env(safe-area-inset-top,0px) + 62px);display:flex;flex-direction:column;gap:4px;padding:8px;min-width:200px;
-  border-radius:16px;border:1px solid var(--glass-line);background:rgba(22,24,27,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  border-radius:16px;border:1px solid var(--glass-line);background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .menu[hidden]{display:none}
 .menu .btn{position:relative;width:100%;justify-content:flex-start;padding:0 12px;border-radius:12px;background:none;border-color:transparent}
 .menu .btn .lbl{display:inline}
@@ -149,6 +153,9 @@ body.strip-on .strip:empty{display:none}
 .modes:not(.open) button:not([aria-pressed="true"]){display:none}
 .modes:not(.open) button[aria-pressed="true"]::after{content:"▾";margin-left:6px;font-size:11px}
 .menu .btn[aria-pressed="true"]{background:var(--accent);color:#1a1c1e;border-color:var(--accent)}
+/* โหมดนำเสนอ: ซ่อน UI ถาวร (ออกด้วยการแตะค้าง 1 วินาที) */
+body.present .toast, body.present .chip, body.present .hint{display:none}
+.exitp{position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px}
 /* ซ่อน UI อัตโนมัติเมื่อไม่ได้แตะ */
 .bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:opacity .35s}
 body.idle .bar,body.idle .modes,body.idle .zoomctl,body.idle .compass,body.idle .nav,body.idle .strip,body.idle .chip{opacity:0;pointer-events:none}
@@ -156,7 +163,7 @@ body.idle .bar>*{pointer-events:none}
 @media (prefers-reduced-motion: reduce){.bar,.modes,.zoomctl,.compass,.nav,.strip,.chip{transition:none}}
 .hzpanel{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 70px);max-width:420px;
   display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--glass-line);
-  background:rgba(22,24,27,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
+  background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:14px}
 .hz-head{display:flex;align-items:center;gap:8px}
 .hz-head b{flex:1}
 .hzpanel .btn{height:34px;min-width:0;padding:0 12px;font-size:13px}
@@ -209,6 +216,18 @@ body.idle .bar>*{pointer-events:none}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
     <span class="lbl">Google Drive</span>
   </button>
+<button class="btn" id="rotBtn" aria-pressed="false" title="หมุนภาพอัตโนมัติ">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+  <span class="lbl">หมุนอัตโนมัติ</span>
+</button>
+<button class="btn" id="presentBtn" title="โหมดนำเสนอ — ซ่อนปุ่มทั้งหมด">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg>
+  <span class="lbl">โหมดนำเสนอ</span>
+</button>
+<button class="btn" id="themeBtn" title="ธีมสี">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+  <span class="lbl" id="themeLbl">ธีม: มืด</span>
+</button>
 <button class="btn" id="stripBtn" aria-pressed="false" title="แสดง/ซ่อนแถบรูป">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="5" height="6" rx="1"/><rect x="9.5" y="14" width="5" height="6" rx="1"/><rect x="16" y="14" width="5" height="6" rx="1"/><path d="M3 9h18"/></svg>
   <span class="lbl">แถบรูป</span>
@@ -230,6 +249,7 @@ body.idle .bar>*{pointer-events:none}
   <span class="lbl">ปรับแนวระดับ</span>
 </button>
 </div>
+<button class="btn exitp" id="exitP" hidden>ออกจากโหมดนำเสนอ</button>
 <div class="modes" role="group" aria-label="มุมมอง">
   <button data-mode="0" aria-pressed="true" title="มุมมองปกติ">ปกติ</button>
   <button data-mode="3" aria-pressed="false" title="กว้าง — กว้างกว่าปกติ โค้งน้อยกว่ากว้างพิเศษ">กว้าง</button>
@@ -628,7 +648,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!menu.hidden) me
 const UI_IDLE_MS = 4000;
 let uiT = 0, uiHidden = false, tap = null;
 const uiBusy = () => dragging || !hzPanel.hidden || sheet.classList.contains('on') || !menu.hidden || modesBar.classList.contains('open');
-function uiShow(){ if (uiHidden){ document.body.classList.remove('idle'); uiHidden = false; } clearTimeout(uiT); uiT = setTimeout(uiIdle, UI_IDLE_MS); }
+function uiShow(){ if (document.body.classList.contains('present')) return; if (uiHidden){ document.body.classList.remove('idle'); uiHidden = false; } clearTimeout(uiT); uiT = setTimeout(uiIdle, UI_IDLE_MS); }
 function uiHide(){ clearTimeout(uiT); document.body.classList.add('idle'); uiHidden = true; }
 function uiIdle(){ if (uiBusy()) uiT = setTimeout(uiIdle, 1000); else uiHide(); }
 stage.addEventListener('pointerdown', e => { tap = { x: e.clientX, y: e.clientY, t: performance.now(), wasHidden: uiHidden, multi: pointers.size > 1 }; });
@@ -642,6 +662,50 @@ document.addEventListener('pointerdown', uiShow);                               
 ['keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, uiShow, { passive: true }));
 uiShow();
 
+// ---------- ธีม / หมุนอัตโนมัติ / โหมดนำเสนอ ----------
+const THEMES = ['dark', 'light', 'auto'], THEME_TH = { dark: 'มืด', light: 'สว่าง', auto: 'ตามระบบ' };
+let theme = load('sv360.theme'); if (!THEMES.includes(theme)) theme = 'dark';
+function applyTheme(){ document.documentElement.dataset.theme = theme; $('themeLbl').textContent = 'ธีม: ' + THEME_TH[theme]; }
+applyTheme();
+$('themeBtn').addEventListener('click', () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]; applyTheme();
+  try { localStorage.setItem('sv360.theme', theme); } catch {}
+  toast('ธีม: ' + THEME_TH[theme]);
+});
+
+const AUTO_RATE = 0.005, AUTO_RESUME_MS = 5000;           // °/ms (≈5°/วินาที) · แตะแล้วหยุด กลับมาหมุนเองหลังไม่แตะ 5 วินาที
+let autoRot = false, lastInput = 0;
+['pointerdown', 'wheel', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastInput = performance.now(); }, { passive: true }));
+$('rotBtn').addEventListener('click', () => {
+  autoRot = !autoRot; $('rotBtn').setAttribute('aria-pressed', String(autoRot));
+  lastInput = -1e9; markInteracted();                      // เริ่มหมุนทันทีที่เปิด
+  toast(autoRot ? 'หมุนอัตโนมัติ: เปิด (แตะภาพเพื่อหยุดชั่วคราว)' : 'หมุนอัตโนมัติ: ปิด');
+});
+
+let presenting = false, presentFs = false, lpT = 0, lpX = 0, lpY = 0, exitT = 0;
+function showExit(){ $('exitP').hidden = false; clearTimeout(exitT); exitT = setTimeout(() => { $('exitP').hidden = true; }, 3000); }
+function presentOn(){
+  presenting = true; menuSet(false); modesBar.classList.remove('open'); sheet.classList.remove('on');
+  if (!hzPanel.hidden){ hzClose(); hzSave(); }
+  document.body.classList.add('present'); uiHide(); showExit();
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req && !document.fullscreenElement && !document.webkitFullscreenElement){
+    presentFs = true;
+    try { const r = req.call(el); if (r && r.catch) r.catch(() => { presentFs = false; }); } catch { presentFs = false; }
+  }
+}
+function presentOff(){
+  presenting = false; document.body.classList.remove('present'); $('exitP').hidden = true; clearTimeout(exitT);
+  if (presentFs){ presentFs = false; try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch {} }
+  uiShow();
+}
+$('presentBtn').addEventListener('click', presentOn);
+$('exitP').addEventListener('click', presentOff);
+stage.addEventListener('pointerdown', e => { if (presenting && pointers.size === 1){ lpX = e.clientX; lpY = e.clientY; clearTimeout(lpT); lpT = setTimeout(showExit, 1000); } });
+stage.addEventListener('pointermove', e => { if (lpT && Math.hypot(e.clientX - lpX, e.clientY - lpY) > 10){ clearTimeout(lpT); lpT = 0; } });
+['pointerup', 'pointercancel'].forEach(ev => stage.addEventListener(ev, () => { clearTimeout(lpT); lpT = 0; }));
+addEventListener('keydown', e => { if (e.key === 'Escape' && presenting) presentOff(); });
+
 // ---------- loop ----------
 const target = new THREE.Vector3();
 let t0 = performance.now();
@@ -652,6 +716,7 @@ function loop(now){
     if (!dragging){
       if (!interacted && !matchMedia('(prefers-reduced-motion: reduce)').matches) lon += dt * 0.004; // gentle intro spin
       lon += vLon; lat += vLat; vLon *= 0.92; vLat *= 0.92;
+      if (autoRot && now - lastInput > AUTO_RESUME_MS) lon += dt * AUTO_RATE;
       if (Math.abs(vLon) < 0.001) vLon = 0; if (Math.abs(vLat) < 0.001) vLat = 0;
     }
     lat = THREE.MathUtils.clamp(lat, -latMax(), latMax());
@@ -670,7 +735,7 @@ function loop(now){
   const lim = THREE.MathUtils.degToRad(55);
   U.shift.value = Math.tan(THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)), -lim, lim));
   drawCompass();
-  moreBtn.classList.toggle('has', gyroOn || hzBtn.classList.contains('has'));
+  moreBtn.classList.toggle('has', gyroOn || autoRot || hzBtn.classList.contains('has'));
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
