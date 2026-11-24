@@ -1506,11 +1506,11 @@ function loadPreview(f){
   });
 }
 // ภาพย่อขนาด size px จาก Google (ย่อฝั่งเซิร์ฟเวอร์ — ไม่ต้อง decode ไฟล์ต้นฉบับ 120MP ในเครื่อง) ใช้เมื่อเพดานภาพถูกลดเพราะแรมไม่พอ
-function loadThumbAt(f, size){
+function loadThumbAt(f, size, ms = 30000){
   return new Promise(res => {
     if (!f.thumbnailLink || !/=s\d+$/.test(f.thumbnailLink)) return res(null);
     const im = new Image(); im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer';
-    const to = setTimeout(() => res(null), 30000);
+    const to = setTimeout(() => { im.src = ''; res(null); }, ms);
     im.onload = () => { clearTimeout(to); res(im); }; im.onerror = () => { clearTimeout(to); res(null); };
     im.src = f.thumbnailLink.replace(/=s\d+$/, '=s' + size);
   });
@@ -1536,14 +1536,20 @@ async function loadDriveItem(it){
   try {
     if (!it.preview) loadPreview(f).then(im => {                 // 1) ภาพตัวอย่างขนานกับดาวน์โหลดจริง
       if (!im) return; it.preview = im;
-      if (!it.img && stillCurrent()){ setPano(im, it.name, it.key); setChip('ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…' + orig); }
+      if (!it.img && stillCurrent()){ setPano(im, it.name, it.key); setChip(it.bigMsg ? it.bigMsg : 'ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…' + orig); }
     });
     const big = md.width && md.width > maxTex;                    // เพดานภาพต่ำกว่าต้นฉบับ (แรมน้อย/?safe=1) → ขอภาพย่อจาก Google ก่อน ไม่ decode ต้นฉบับทั้งภาพ
     if (big){
-      setChip(`กำลังโหลดภาพ ${maxTex}px (ย่อฝั่งเซิร์ฟเวอร์ กันแรมเต็ม)…${orig}`);
       busyStart(maxTex);
-      const th = await loadThumbAt(f, maxTex);
-      if (th && th.naturalWidth >= Math.min(md.width, maxTex) * 0.9){
+      let th = null;
+      for (const sz of [...new Set([maxTex, 6144, 4096])].filter(z => z <= maxTex)){      // ลองขนาดลดหลั่น (ครั้งละ ≤15 วิ) ก่อนยอมโหลดไฟล์ต้นฉบับ 100MB+
+        it.bigMsg = `กำลังโหลดภาพ ${sz}px (ย่อฝั่งเซิร์ฟเวอร์ กันแรมเต็ม)…${orig}`;
+        if (stillCurrent()) setChip((isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : '') + it.bigMsg);
+        const t = await loadThumbAt(f, sz, 15000);
+        if (t && t.naturalWidth >= Math.min(sz * 0.9, 3500)){ th = t; break; }           // Google อาจคืนภาพเล็กกว่าที่ขอ — ยอมรับถ้า ≥ ~3500px
+      }
+      it.bigMsg = null;
+      if (th){
         if (!stillCurrent()) return;
         const keep = isPreview(); it.img = th;
         it.info = setPano(th, it.name, it.key, { keep }); it.info.w = md.width; it.info.h = md.height;
@@ -1553,7 +1559,7 @@ async function loadDriveItem(it){
     }
     const t1 = performance.now();                                 // 2) ไฟล์ต้นฉบับ (แคช → Drive)
     const { file, cached, put } = await getFullFile(f, (got, total) => {
-      if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดภาพเต็ม${total ? ' ' + Math.round(got / total * 100) + '%' : ''}${orig}`);
+      if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดไฟล์ต้นฉบับ${total ? ' ' + Math.round(got / total * 100) + '%' : ' ' + (got / 1e6).toFixed(0) + ' MB'} (${((performance.now() - t1) / 1000).toFixed(0)} วิ)${orig}`);
     });
     const t2 = performance.now();
     busyStart(Math.min(md.width || 0, maxTex));                    // จดธงก่อน decode ภาพใหญ่ (decode + อัปโหลดคือช่วงที่แรมพุ่ง)
