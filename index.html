@@ -161,6 +161,11 @@ body.start .sheet-head{padding:8px 14px}
 body.start #closeSheet{display:none}
 body.start .item{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
 body.start .item:hover{border-color:var(--accent)}
+#loadBar{position:fixed;left:0;top:0;height:3px;width:0;z-index:30;background:var(--accent);box-shadow:0 0 6px var(--accent);opacity:0;transition:width .25s ease,opacity .25s;pointer-events:none}
+#loadBar.on{opacity:1}
+#loadBar.ind{width:35%!important;transition:opacity .25s;animation:lbar 1.1s ease-in-out infinite}
+@keyframes lbar{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
+body.start #loadBar{display:none}
 body.start .bar,body.start .botleft,body.start .compass,body.start .zoomctl,body.start .nav,body.start .chip,body.start .strip,body.start #moreBtn{display:none!important}
 /* Drive folder browser */
 .sheet{position:fixed;left:0;right:0;bottom:0;height:85%;display:none;flex-direction:column;
@@ -287,6 +292,10 @@ body.idle .bar>*{pointer-events:none}
     <span class="lbl">เปิดรูป</span>
     <input id="file" type="file" accept="image/*" multiple hidden>
   </label>
+  <button class="btn" id="homeBtn" title="กลับไปหน้าแรก">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg>
+    <span class="lbl">หน้าแรก</span>
+  </button>
   <button class="btn" id="driveBtn" title="รูปจากโฟลเดอร์ Google Drive">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg>
     <span class="lbl">Google Drive</span>
@@ -426,6 +435,7 @@ body.idle .bar>*{pointer-events:none}
   ลากเพื่อหมุนดูรอบทิศ · ถ่างนิ้วหรือเลื่อนล้อเพื่อซูม
 </div>
 <div class="strip" id="strip"></div>
+<div id="loadBar" aria-hidden="true"></div>
 <div id="startShade"></div>
 <section class="sheet" id="sheet" aria-label="รูปใน Google Drive">
   <div class="start-hero">
@@ -1217,6 +1227,12 @@ function setChip(msg, o = {}){
   chip.textContent = msg; chip.classList.toggle('warn', !!o.warn); chip.hidden = false;
   if (o.ms) chipT = setTimeout(() => { chip.hidden = true; }, o.ms);
 }
+const loadBar = $('loadBar');
+function setBar(v){                                  // แถบความคืบหน้าบางๆ ที่ขอบบน: ตัวเลข 0..1 = สัดส่วน · 'ind' = กำลังรอ/ประมวลผล · null = ซ่อน
+  if (v == null){ loadBar.className = ''; loadBar.style.width = '0'; return; }
+  if (v === 'ind'){ loadBar.className = 'on ind'; loadBar.style.width = ''; return; }
+  loadBar.className = 'on'; loadBar.style.width = Math.max(2, Math.round(v * 100)) + '%';
+}
 function chipFull(info, extra){
   const dim = `${info.w}×${info.h}`;
   if (info.tw < info.w){
@@ -1247,7 +1263,7 @@ async function addFiles(files, key){
   return added;
 }
 function select(item, btn){
-  endStart();
+  endStart(); setBar(null);
   document.querySelectorAll('.thumb').forEach(t => t.removeAttribute('aria-current'));
   btn.setAttribute('aria-current','true');
   const prev = current; current = item;
@@ -1584,7 +1600,7 @@ async function loadDriveItem(it){
   const f = it.drive, myTok = (it.tok = (it.tok || 0) + 1), stillCurrent = () => current === it && it.tok === myTok;   // tok: กันโหลดเก่า (ที่ถูกยกเลิก) มาแย่งกับโหลดใหม่ของรูปเดิม
   const md = f.imageMediaMetadata || {}, orig = md.width && md.height ? ` · ต้นฉบับ ${md.width}×${md.height}` : '';
   const isPreview = () => !!it.preview && shown === it.preview;
-  it.loading = true; const t0 = performance.now();
+  it.loading = true; setBar('ind'); const t0 = performance.now();
   setChip('กำลังเปิด…' + orig);
   try {
     if (!it.preview) loadPreview(f).then(im => {                 // 1) ภาพตัวอย่างขนานกับดาวน์โหลดจริง
@@ -1615,6 +1631,7 @@ async function loadDriveItem(it){
     it.ac = new AbortController();                                 // เลิกโหลดทันทีเมื่อผู้ใช้ไปดูรูปอื่น (กันโหลดไฟล์ 100MB+ ซ้อนกันจนรูปปัจจุบันไม่ขึ้น)
     const prog = (got, total) => {
       if (!stillCurrent()) return;
+      setBar(got && total ? got / total : 'ind');
       const sec = ((performance.now() - t1) / 1000).toFixed(0), pre = isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : '';
       setChip(got ? `${pre}กำลังโหลดไฟล์ต้นฉบับ${total ? ' ' + Math.round(got / total * 100) + '%' : ' ' + (got / 1e6).toFixed(0) + ' MB'} (${sec} วิ)${orig}`
                   : `${pre}รอ Drive ส่งไฟล์ต้นฉบับ… (${sec} วิ)${orig}`);
@@ -1625,6 +1642,7 @@ async function loadDriveItem(it){
       catch (e){ if (e.message === 'stall' && attempt < 1 && stillCurrent()){ setChip('Drive ไม่ตอบ — ลองใหม่อีกครั้ง…' + orig); continue; } throw e; }
     }
     const { file, cached, put } = got1;
+    if (stillCurrent()) setBar('ind');                              // ดาวน์โหลดครบแล้ว กำลัง decode/อัปโหลด
     const t2 = performance.now();
     // พยายามใช้ความละเอียดต้นฉบับเต็มก่อน ถ้าเครื่องรับไม่ไหว (decode/อัปโหลดล้มเหลวหรือค้างเกิน 60 วิ) ลดขนาดลงเป็นขั้นอัตโนมัติ
     // และจำขนาดสูงสุดที่เครื่องนี้รับไหวไว้ (sv360.cap) · ถ้าแอปหลุดกลางทาง ธง sv360.busy จะลดเพดานให้ตอนเปิดใหม่
@@ -1661,7 +1679,7 @@ async function loadDriveItem(it){
     const why = e.message === 'stall' ? 'Drive ไม่ตอบ (หมดเวลา)' : e.message;
     if (stillCurrent()) setChip((isPreview() ? 'โหลดภาพเต็มไม่สำเร็จ — ตอนนี้เห็นแค่ภาพตัวอย่างความละเอียดต่ำ · ' : 'โหลดไม่สำเร็จ · ') + why, { warn: true });
     busyEnd(); toast(`โหลด ${f.name} ไม่ได้ (${why})`);
-  } finally { if (it.tok === myTok) it.loading = false; }
+  } finally { if (it.tok === myTok){ it.loading = false; if (current === it) setBar(null); } }
 }
 function openDriveImage(f, sib){
   const ck = f.id + f.modifiedTime;
@@ -1693,12 +1711,24 @@ rootId = lockedId || parseFolderId(new URLSearchParams(location.search).get('fol
 if (rootId && (hasKey || hasClient)) setTimeout(() => { sheet.classList.add('on'); connect(rootId); }, 300);
 else sheet.classList.add('on');                      // ไม่มี Drive: หน้าเริ่มต้นยังมีการ์ดกับปุ่มเปิดรูปจากเครื่อง
 
-// start
-(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
-  const fb = () => setPano(startPano(), 'SiteView 360', '__start', { start: true });
-  fb();
+// หน้าแรก: พื้นหลังเป็นรูปล่าสุดที่เคยเปิด (ถ้าไม่มีใช้พื้นกรมท่า)
+function startBackdrop(){
+  setPano(startPano(), 'SiteView 360', '__start', { start: true });
   const bg = load('sv360.bg');
   if (bg){ const im = new Image(); im.onload = () => { if (startMode) setPano(im, 'SiteView 360', '__start', { start: true }); }; im.src = bg; }
+}
+function showStart(){                                // เมนู → หน้าแรก: ยกเลิกการโหลดที่ค้างอยู่ แล้วกลับไปหน้าเริ่มต้น
+  if (current){ try { current.ac && current.ac.abort(); } catch {} current.loading = false; }
+  current = null; setBar(null); setChip(null); syncNav();
+  startMode = true; document.body.classList.add('start'); menuSet(false);
+  startBackdrop();
+  sheet.classList.add('on');
+  if (rootId && (hasKey || hasClient)) connect(rootId);
+}
+$('homeBtn').addEventListener('click', showStart);
+// start
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  startBackdrop();
   requestAnimationFrame(loop);
 });
 })();
