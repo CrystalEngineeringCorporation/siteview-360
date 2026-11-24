@@ -565,7 +565,7 @@ function setPano(img, name, key, opt = {}){
   texW = src.width;
   busyStart(src.width);
   const tex = new THREE.Texture(src);
-  tex.onUpdate = () => { tex.image = TEX_BLANK; };   // อัปโหลดเข้า GPU แล้ว ปล่อยสำเนาบน CPU (ไม่งั้นภาพ decode ค้างในแรมอีกชุด)
+  tex.onUpdate = () => { const im = tex.image; tex.image = TEX_BLANK; if (im === img && im.close && im.width * im.height > 30e6) try { im.close(); } catch {} };   // อัปโหลดเข้า GPU แล้ว ปล่อยสำเนาบน CPU (ไม่งั้นภาพ decode ค้างในแรมอีกชุด)
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   tex.needsUpdate = true;
@@ -1487,14 +1487,15 @@ async function cachePut(k, file){
 async function getFullFile(f, onProg){
   const k = `${f.id}/${f.modifiedTime}`;
   const hit = await cacheGet(k);
-  if (hit) return { file: new File([hit], f.name, { type: hit.type || f.mimeType || 'image/jpeg' }), cached: true, put: Promise.resolve() };
+  if (hit) return { file: new File([hit], f.name, { type: hit.type || f.mimeType || 'image/jpeg' }), cached: true, put: () => Promise.resolve() };
   const r = await api(`${API}/${f.id}?alt=media`, true);
   const total = +f.size || +r.headers.get('content-length') || 0;
   const reader = r.body.getReader(), chunks = []; let got = 0;
   for (;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; if (onProg) onProg(got, total); }
   if (+f.size && got !== +f.size) throw new Error('ไฟล์โหลดไม่ครบ');
   const file = new File(chunks, f.name, { type: f.mimeType || 'image/jpeg' });
-  return { file, cached: false, put: cachePut(k, file) };
+  chunks.length = 0;                                              // ปล่อยรายการชิ้นส่วนทันที (ไม่ให้ไฟล์อยู่ในแรมซ้อนสองชุด)
+  return { file, cached: false, put: () => cachePut(k, file) };   // เขียนแคชทีหลัง (หลัง decode+อัปโหลดเสร็จ) ไม่ทำพร้อมช่วงแรมสูงสุด
 }
 // ภาพตัวอย่าง: ภาพย่อ 2048 px จาก Google (ย่อฝั่งเซิร์ฟเวอร์ ไฟล์เล็ก) — ใช้เป็น texture ได้เฉพาะถ้าเซิร์ฟเวอร์อนุญาต CORS ถ้าไม่ได้ก็ข้ามไปเฉยๆ
 function loadPreview(f){
@@ -1577,7 +1578,7 @@ async function loadDriveItem(it){
         if ((i > 0 || big) && window.createImageBitmap){ try { im = await createImageBitmap(file, { resizeWidth: cw, resizeQuality: 'high' }); } catch { im = null; } }   // ย่อตอน decode
         if (!im) im = await Promise.race([decodeFile(file), new Promise((_, rj) => setTimeout(() => rj(new Error('decode นานเกิน 60 วิ')), 60000))]);
         t3 = performance.now();
-        if (!stillCurrent()){ await put; return; }                // ผู้ใช้ไปดูรูปอื่นแล้ว: เก็บไฟล์ลงแคชไว้ให้เปิดครั้งหน้าเร็ว
+        if (!stillCurrent()){ await put(); return; }                // ผู้ใช้ไปดูรูปอื่นแล้ว: เก็บไฟล์ลงแคชไว้ให้เปิดครั้งหน้าเร็ว
         const keep = isPreview();                                 // สลับตัวอย่าง→ภาพเต็มโดยไม่เสียมุมที่กำลังดู
         it.img = im;
         it.info = setPano(im, it.name, it.key, { keep });         // อัปโหลดเข้า GPU (ช่วงที่แรมพุ่ง) — ล้มเหลวจะข้ามไปขั้นถัดไป
@@ -1589,6 +1590,7 @@ async function loadDriveItem(it){
       store('sv360.cap', String(usedCap));
       toast(`เครื่องนี้รับภาพ ${md.width}px ไม่ไหว — ลดเหลือ ${usedCap}px (ความละเอียดสูงสุดที่เครื่องรับได้)`);
     }
+    setTimeout(() => put(), 3000);                                // เขียนแคชหลังอัปโหลดเข้า GPU เสร็จ (เฟรมถัดไป) ไม่ทับช่วงแรมสูงสุด
     if (md.width && img.width < md.width){ it.info.w = md.width; it.info.h = md.height; }
     if (img.width * img.height > 30e6){ it.img = null; if (shown === img) shown = null; }   // ภาพใหญ่ไม่เก็บไว้ในแรม (เปิดซ้ำอ่านจากแคช)
     chipFull(it.info, `${cached ? 'จากแคช' : 'โหลด'} ${((t2 - t1) / 1000).toFixed(1)}s · decode ${Math.round(t3 - t2)}ms · texture ${it.info.ms}ms · รวม ${((performance.now() - t0) / 1000).toFixed(1)}s`);
