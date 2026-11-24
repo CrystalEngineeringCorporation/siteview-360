@@ -1252,7 +1252,7 @@ function select(item, btn){
   btn.setAttribute('aria-current','true');
   const prev = current; current = item;
   syncNav(); try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch {}
-  if (prev && prev !== item && prev.drive) prev.img = null;   // ปล่อยหน่วยความจำรูป Drive ที่ไม่ได้ดูแล้ว (เปิดกลับจากแคชได้ทันที)
+  if (prev && prev !== item && prev.drive){ prev.img = null; try { prev.ac && prev.ac.abort(); } catch {} prev.loading = false; }   // ปล่อยหน่วยความจำรูป Drive ที่ไม่ได้ดูแล้ว (เปิดกลับจากแคชได้ทันที)
   if (item.img){ item.info = setPano(item.img, item.name, item.key); chipFull(item.info); return; }
   $('title').textContent = item.name;                          // รูป Drive ที่ยังไม่มีภาพเต็มในหน่วยความจำ
   if (item.preview){ setPano(item.preview, item.name, item.key); setChip('ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…'); }
@@ -1374,13 +1374,13 @@ async function signIn(){
   });
 }
 // ลองด้วย API key ก่อน (โฟลเดอร์แชร์ทุกคนที่มีลิงก์) ถ้าไม่ได้ค่อยล็อกอิน
-async function api(url, asBlob = false){
+async function api(url, asBlob = false, signal){
   const go = () => {
     const u = new URL(url), h = {};
     u.searchParams.set('supportsAllDrives', 'true');
     if (token && Date.now() < tokenExp - 60000) h.Authorization = `Bearer ${token}`;
     else if (hasKey) u.searchParams.set('key', DC.API_KEY);
-    return fetch(u, { headers: h });
+    return fetch(u, { headers: h, signal });
   };
   let r = await go();
   if ((r.status === 401 || r.status === 403 || r.status === 404) && hasClient){
@@ -1524,18 +1524,30 @@ async function cachePut(k, file){
 }
 
 // ไฟล์ต้นฉบับครบทุกไบต์ (ไม่ใช่ภาพย่อ): แคชก่อน ไม่มีค่อยโหลดจาก Drive แล้วตรวจขนาดให้ตรงกับที่ Drive แจ้ง
-async function getFullFile(f, onProg){
+async function getFullFile(f, onProg, signal){
   const k = `${f.id}/${f.modifiedTime}`;
   const hit = await cacheGet(k);
   if (hit) return { file: new File([hit], f.name, { type: hit.type || f.mimeType || 'image/jpeg' }), cached: true, put: () => Promise.resolve() };
-  const r = await api(`${API}/${f.id}?alt=media`, true);
-  const total = +f.size || +r.headers.get('content-length') || 0;
-  const reader = r.body.getReader(), chunks = []; let got = 0;
-  for (;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; if (onProg) onProg(got, total); }
-  if (+f.size && got !== +f.size) throw new Error('ไฟล์โหลดไม่ครบ');
-  const file = new File(chunks, f.name, { type: f.mimeType || 'image/jpeg' });
-  chunks.length = 0;                                              // ปล่อยรายการชิ้นส่วนทันที (ไม่ให้ไฟล์อยู่ในแรมซ้อนสองชุด)
-  return { file, cached: false, put: () => cachePut(k, file) };   // เขียนแคชทีหลัง (หลัง decode+อัปโหลดเสร็จ) ไม่ทำพร้อมช่วงแรมสูงสุด
+  const ctl = new AbortController(); let stalled = false, got = 0, total = +f.size || 0, last = Date.now(), first = true;
+  const onAbort = () => ctl.abort(); if (signal){ if (signal.aborted) throw new DOMException('aborted', 'AbortError'); signal.addEventListener('abort', onAbort); }
+  // เฝ้าดูว่าค้างไหม: รอ byte แรกได้ 90 วิ · ระหว่างชิ้นข้อมูลได้ 45 วิ · อัปเดตข้อความสถานะทุกวินาที
+  const tick = setInterval(() => {
+    if (Date.now() - last > (first ? 90000 : 45000)){ stalled = true; ctl.abort(); }
+    else if (onProg) onProg(got, total);
+  }, 1000);
+  try {
+    const r = await api(`${API}/${f.id}?alt=media`, true, ctl.signal);
+    total = +f.size || +r.headers.get('content-length') || 0;
+    const reader = r.body.getReader(), chunks = [];
+    for (;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; first = false; last = Date.now(); if (onProg) onProg(got, total); }
+    if (+f.size && got !== +f.size) throw new Error('ไฟล์โหลดไม่ครบ');
+    const file = new File(chunks, f.name, { type: f.mimeType || 'image/jpeg' });
+    chunks.length = 0;                                            // ปล่อยรายการชิ้นส่วนทันที (ไม่ให้ไฟล์อยู่ในแรมซ้อนสองชุด)
+    return { file, cached: false, put: () => cachePut(k, file) }; // เขียนแคชทีหลัง (หลัง decode+อัปโหลดเสร็จ) ไม่ทำพร้อมช่วงแรมสูงสุด
+  } catch (e){
+    if (stalled) throw new Error('stall');
+    throw e;
+  } finally { clearInterval(tick); if (signal) signal.removeEventListener('abort', onAbort); }
 }
 // ภาพตัวอย่าง: ภาพย่อ 2048 px จาก Google (ย่อฝั่งเซิร์ฟเวอร์ ไฟล์เล็ก) — ใช้เป็น texture ได้เฉพาะถ้าเซิร์ฟเวอร์อนุญาต CORS ถ้าไม่ได้ก็ข้ามไปเฉยๆ
 function loadPreview(f){
@@ -1569,7 +1581,7 @@ function driveThumb(item, f){
 }
 
 async function loadDriveItem(it){
-  const f = it.drive, stillCurrent = () => current === it;
+  const f = it.drive, myTok = (it.tok = (it.tok || 0) + 1), stillCurrent = () => current === it && it.tok === myTok;   // tok: กันโหลดเก่า (ที่ถูกยกเลิก) มาแย่งกับโหลดใหม่ของรูปเดิม
   const md = f.imageMediaMetadata || {}, orig = md.width && md.height ? ` · ต้นฉบับ ${md.width}×${md.height}` : '';
   const isPreview = () => !!it.preview && shown === it.preview;
   it.loading = true; const t0 = performance.now();
@@ -1600,9 +1612,19 @@ async function loadDriveItem(it){
       busyEnd();
     }
     const t1 = performance.now();                                 // 2) ไฟล์ต้นฉบับ (แคช → Drive)
-    const { file, cached, put } = await getFullFile(f, (got, total) => {
-      if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดไฟล์ต้นฉบับ${total ? ' ' + Math.round(got / total * 100) + '%' : ' ' + (got / 1e6).toFixed(0) + ' MB'} (${((performance.now() - t1) / 1000).toFixed(0)} วิ)${orig}`);
-    });
+    it.ac = new AbortController();                                 // เลิกโหลดทันทีเมื่อผู้ใช้ไปดูรูปอื่น (กันโหลดไฟล์ 100MB+ ซ้อนกันจนรูปปัจจุบันไม่ขึ้น)
+    const prog = (got, total) => {
+      if (!stillCurrent()) return;
+      const sec = ((performance.now() - t1) / 1000).toFixed(0), pre = isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : '';
+      setChip(got ? `${pre}กำลังโหลดไฟล์ต้นฉบับ${total ? ' ' + Math.round(got / total * 100) + '%' : ' ' + (got / 1e6).toFixed(0) + ' MB'} (${sec} วิ)${orig}`
+                  : `${pre}รอ Drive ส่งไฟล์ต้นฉบับ… (${sec} วิ)${orig}`);
+    };
+    let got1;
+    for (let attempt = 0; ; attempt++){
+      try { got1 = await getFullFile(f, prog, it.ac.signal); break; }
+      catch (e){ if (e.message === 'stall' && attempt < 1 && stillCurrent()){ setChip('Drive ไม่ตอบ — ลองใหม่อีกครั้ง…' + orig); continue; } throw e; }
+    }
+    const { file, cached, put } = got1;
     const t2 = performance.now();
     // พยายามใช้ความละเอียดต้นฉบับเต็มก่อน ถ้าเครื่องรับไม่ไหว (decode/อัปโหลดล้มเหลวหรือค้างเกิน 60 วิ) ลดขนาดลงเป็นขั้นอัตโนมัติ
     // และจำขนาดสูงสุดที่เครื่องนี้รับไหวไว้ (sv360.cap) · ถ้าแอปหลุดกลางทาง ธง sv360.busy จะลดเพดานให้ตอนเปิดใหม่
@@ -1635,9 +1657,11 @@ async function loadDriveItem(it){
     if (img.width * img.height > 30e6){ it.img = null; if (shown === img) shown = null; }   // ภาพใหญ่ไม่เก็บไว้ในแรม (เปิดซ้ำอ่านจากแคช)
     chipFull(it.info, `${cached ? 'จากแคช' : 'โหลด'} ${((t2 - t1) / 1000).toFixed(1)}s · decode ${Math.round(t3 - t2)}ms · texture ${it.info.ms}ms · รวม ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   } catch (e){
-    if (stillCurrent()) setChip(isPreview() ? 'โหลดภาพเต็มไม่สำเร็จ — ตอนนี้เห็นแค่ภาพตัวอย่างความละเอียดต่ำ' : '', { warn: true });
-    busyEnd(); toast(`โหลด ${f.name} ไม่ได้ (${e.message})`);
-  } finally { it.loading = false; }
+    if (e.name === 'AbortError'){ busyEnd(); return; }              // ผู้ใช้ไปดูรูปอื่นแล้ว ไม่ต้องแจ้งเตือน
+    const why = e.message === 'stall' ? 'Drive ไม่ตอบ (หมดเวลา)' : e.message;
+    if (stillCurrent()) setChip((isPreview() ? 'โหลดภาพเต็มไม่สำเร็จ — ตอนนี้เห็นแค่ภาพตัวอย่างความละเอียดต่ำ · ' : 'โหลดไม่สำเร็จ · ') + why, { warn: true });
+    busyEnd(); toast(`โหลด ${f.name} ไม่ได้ (${why})`);
+  } finally { if (it.tok === myTok) it.loading = false; }
 }
 function openDriveImage(f, sib){
   const ck = f.id + f.modifiedTime;
