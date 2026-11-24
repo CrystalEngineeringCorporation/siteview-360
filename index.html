@@ -475,6 +475,7 @@ try {
   }
 } catch {}
 const capStored = +load('sv360.cap') || Infinity;
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // Safari iOS: decode ภาพ >~50MP มักค้าง/แรมเต็ม แม้ GPU รับ texture 16384 ได้
 const maxTex = Math.min(SAFE ? Math.min(gpuMax, 8192) : gpuMax, capStored);
 const memCapped = maxTex < gpuMax && !SAFE;
 let busyTok = 0;
@@ -1538,11 +1539,12 @@ async function loadDriveItem(it){
       if (!im) return; it.preview = im;
       if (!it.img && stillCurrent()){ setPano(im, it.name, it.key); setChip(it.bigMsg ? it.bigMsg : 'ภาพตัวอย่างความละเอียดต่ำ · กำลังโหลดภาพเต็ม…' + orig); }
     });
-    const big = md.width && md.width > maxTex;                    // เพดานภาพต่ำกว่าต้นฉบับ (แรมน้อย/?safe=1) → ขอภาพย่อจาก Google ก่อน ไม่ decode ต้นฉบับทั้งภาพ
+    const bigCap = IOS ? Math.min(maxTex, 8192) : maxTex;         // เพดานความกว้างที่จะ decode จริงบนเครื่องนี้
+    const big = md.width && (md.width > maxTex || (IOS && md.width * md.height > 50e6));                    // เพดานภาพต่ำกว่าต้นฉบับ (แรมน้อย/?safe=1) → ขอภาพย่อจาก Google ก่อน ไม่ decode ต้นฉบับทั้งภาพ
     if (big){
-      busyStart(maxTex);
+      busyStart(bigCap);
       let th = null;
-      for (const sz of [...new Set([maxTex, 6144, 4096])].filter(z => z <= maxTex)){      // ลองขนาดลดหลั่น (ครั้งละ ≤15 วิ) ก่อนยอมโหลดไฟล์ต้นฉบับ 100MB+
+      for (const sz of [...new Set([bigCap, 6144, 4096])].filter(z => z <= bigCap)){      // ลองขนาดลดหลั่น (ครั้งละ ≤15 วิ) ก่อนยอมโหลดไฟล์ต้นฉบับ 100MB+
         it.bigMsg = `กำลังโหลดภาพ ${sz}px (ย่อฝั่งเซิร์ฟเวอร์ กันแรมเต็ม)…${orig}`;
         if (stillCurrent()) setChip((isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : '') + it.bigMsg);
         const t = await loadThumbAt(f, sz, 15000);
@@ -1562,10 +1564,11 @@ async function loadDriveItem(it){
       if (stillCurrent()) setChip(`${isPreview() ? 'ภาพตัวอย่างความละเอียดต่ำ · ' : ''}กำลังโหลดไฟล์ต้นฉบับ${total ? ' ' + Math.round(got / total * 100) + '%' : ' ' + (got / 1e6).toFixed(0) + ' MB'} (${((performance.now() - t1) / 1000).toFixed(0)} วิ)${orig}`);
     });
     const t2 = performance.now();
-    busyStart(Math.min(md.width || 0, maxTex));                    // จดธงก่อน decode ภาพใหญ่ (decode + อัปโหลดคือช่วงที่แรมพุ่ง)
+    setChip('กำลังประมวลผลภาพ…' + orig);
+    busyStart(Math.min(md.width || 0, big ? bigCap : maxTex));                    // จดธงก่อน decode ภาพใหญ่ (decode + อัปโหลดคือช่วงที่แรมพุ่ง)
     let img = null;
-    if (big && window.createImageBitmap){ try { img = await createImageBitmap(file, { resizeWidth: maxTex, resizeQuality: 'high' }); } catch { img = null; } }   // ย่อตอน decode
-    if (!img) img = await decodeFile(file);
+    if (big && window.createImageBitmap){ try { img = await createImageBitmap(file, { resizeWidth: bigCap, resizeQuality: 'high' }); } catch { img = null; } }   // ย่อตอน decode
+    if (!img) img = await Promise.race([decodeFile(file), new Promise((_, rj) => setTimeout(() => rj(new Error('decode นานเกิน 60 วิ — ภาพใหญ่เกินเครื่อง')), 60000))]);
     const t3 = performance.now();
     if (!stillCurrent()){ await put; return; }                    // ผู้ใช้ไปดูรูปอื่นแล้ว: เก็บไฟล์ลงแคชไว้ให้เปิดครั้งหน้าเร็ว
     const keep = isPreview();                                     // สลับตัวอย่าง→ภาพเต็มโดยไม่เสียมุมที่กำลังดู
